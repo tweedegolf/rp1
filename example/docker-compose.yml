@@ -1,0 +1,9 @@
+services:
+  psql:
+    image: docker.tgrep.nl/docker/postgres:13
+    command: ["postgres", "-c", "log_statement=all"]
+    ports: ["127.0.0.1:5432:5432"]
+    environment:
+      POSTGRES_USER: crud
+      POSTGRES_DB: crud
+      POSTGRES_HOST_AUTH_METHOD: trust
