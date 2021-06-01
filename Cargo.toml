@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "proc_macros",
+    "example",
+]
+# "rocket_crud",
