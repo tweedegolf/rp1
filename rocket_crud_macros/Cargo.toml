@@ -1,5 +1,5 @@
 [package]
-name = "proc_macros"
+name = "rocket_crud_macros"
 version = "0.1.0"
 authors = ["The Roc Contributors"]
 license = "UPL-1.0"

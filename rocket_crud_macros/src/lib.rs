@@ -24,3 +24,10 @@ pub fn mono_test(_args: TokenStream, item: TokenStream) -> TokenStream {
     };
     result.into()
 }
+
+#[proc_macro_derive(CrudCreate, attributes(auto_error))]
+pub fn derive_crud_create(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    todo!()
+}
