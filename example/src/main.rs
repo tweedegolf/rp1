@@ -15,7 +15,7 @@ struct Db(diesel::PgConnection);
 
 #[derive(serde::Serialize, Queryable, Insertable, rocket_crud::CrudInsertable, rocket_crud::CrudCreate)]
 #[table_name = "foo"]
-#[database = self::Db]
+#[crud_db = self::Db]
 struct CruddedFoo {
     #[primary_key]
     id: i32,

@@ -52,12 +52,12 @@ impl syn::parse::Parse for DatabasePath {
     }
 }
 
-#[proc_macro_derive(CrudCreate, attributes(database))]
+#[proc_macro_derive(CrudCreate, attributes(crud_db))]
 pub fn derive_crud_create(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemStruct);
     let orig_ident = input.ident;
     let new_ident = quote::format_ident!("New{}", &orig_ident);
-    let db_ident = input.attrs.iter().find(|a| a.path.is_ident("database")).map(|db| {
+    let db_ident = input.attrs.iter().find(|a| a.path.is_ident("crud_db")).map(|db| {
         let tokens: TokenStream = db.tokens.clone().into();
         let input: DatabasePath = syn::parse(tokens).expect("No valid database path");
         // let input = parse_macro_input!(tokens as DatabasePath);
@@ -70,5 +70,6 @@ pub fn derive_crud_create(input: TokenStream) -> TokenStream {
             todo!()
         }
     };
+    println!("{}", tokens);
     tokens.into()
 }
