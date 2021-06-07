@@ -283,8 +283,10 @@ dependencies = [
  "diesel_migrations",
  "dotenv",
  "rocket",
- "rocket-crud-macros",
+ "rocket-crud",
  "rocket_sync_db_pools",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -964,6 +966,7 @@ dependencies = [
  "rocket_codegen",
  "rocket_http",
  "serde",
+ "serde_json",
  "state",
  "tempfile",
  "time",
@@ -973,6 +976,13 @@ dependencies = [
  "ubyte",
  "version_check",
  "yansi",
+]
+
+[[package]]
+name = "rocket-crud"
+version = "0.1.0"
+dependencies = [
+ "rocket-crud-macros",
 ]
 
 [[package]]

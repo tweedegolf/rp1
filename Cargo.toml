@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "rocket_crud_macros",
+    "rocket_crud",
     "example",
 ]
 # "rocket_crud",

@@ -1,0 +1,9 @@
+[package]
+name = "rocket-crud"
+version = "0.1.0"
+authors = ["The Roc Contributors"]
+license = "UPL-1.0"
+edition = "2018"
+
+[dependencies]
+rocket-crud-macros = { path = "../rocket_crud_macros/" }

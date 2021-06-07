@@ -13,8 +13,9 @@ use rocket_sync_db_pools::database;
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[derive(Queryable, Insertable, rocket_crud_macros::CrudInsertable)]
+#[derive(serde::Serialize, Queryable, Insertable, rocket_crud::CrudInsertable, rocket_crud::CrudCreate)]
 #[table_name = "foo"]
+#[database = self::Db]
 struct CruddedFoo {
     #[primary_key]
     id: i32,

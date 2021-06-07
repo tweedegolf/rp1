@@ -2,40 +2,13 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input};
 
-#[proc_macro_attribute]
-pub fn mono_test(_args: TokenStream, item: TokenStream) -> TokenStream {
-    let task_fn = syn::parse_macro_input!(item as syn::ItemFn);
-
-    let args = task_fn.sig.inputs.clone();
-
-    let name = task_fn.sig.ident.clone();
-    let name_str = name.to_string();
-    let body = task_fn.block.clone();
-
-    let visibility = &task_fn.vis;
-
-    let result = quote! {
-        #[test]
-        #visibility fn #name(#args) -> () {
-            compiles_to_ir(#name_str, #body);
-
-        }
-    };
-    result.into()
-}
-
-#[proc_macro_derive(CrudCreate, attributes(auto_error))]
-pub fn derive_crud_create(input: TokenStream) -> TokenStream {
-    let _input = parse_macro_input!(input as DeriveInput);
-
-    todo!()
-}
 
 #[proc_macro_derive(CrudInsertable, attributes(primary_key, generated, table_name))]
 pub fn derive_crud_insertable(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemStruct);
+    let orig_ident = input.ident;
 
     let table_name = input
         .attrs
@@ -50,7 +23,7 @@ pub fn derive_crud_insertable(input: TokenStream) -> TokenStream {
                 .any(|a| a.path.is_ident("generated") || a.path.is_ident("primary_key"))
         })
         .collect();
-    let ident = quote::format_ident!("New{}", input.ident);
+    let ident = quote::format_ident!("New{}", &orig_ident);
 
     let tokens = quote::quote! {
         #[derive(::diesel::Insertable)]
@@ -58,7 +31,44 @@ pub fn derive_crud_insertable(input: TokenStream) -> TokenStream {
         struct #ident {
             #(#non_generated_fields),*
         }
+
+        impl ::rocket_crud::CrudInsertableMarker for #orig_ident {}
     };
-    println!("{}", tokens);
+    tokens.into()
+}
+
+#[derive(Debug)]
+struct DatabasePath {
+    eq_token: syn::Token![=],
+    value: syn::Path,
+}
+
+impl syn::parse::Parse for DatabasePath {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(DatabasePath {
+            eq_token: input.parse()?,
+            value: input.parse()?,
+        })
+    }
+}
+
+#[proc_macro_derive(CrudCreate, attributes(database))]
+pub fn derive_crud_create(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemStruct);
+    let orig_ident = input.ident;
+    let new_ident = quote::format_ident!("New{}", &orig_ident);
+    let db_ident = input.attrs.iter().find(|a| a.path.is_ident("database")).map(|db| {
+        let tokens: TokenStream = db.tokens.clone().into();
+        let input: DatabasePath = syn::parse(tokens).expect("No valid database path");
+        // let input = parse_macro_input!(tokens as DatabasePath);
+        input.value
+    }).expect("Database connection name is required");
+
+    let tokens = quote! {
+        #[::rocket::post("/")]
+        async fn create_fn(db: #db_ident, insertable: #new_ident) -> ::rocket::serde::json::Json<#orig_ident> {
+            todo!()
+        }
+    };
     tokens.into()
 }

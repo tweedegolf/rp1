@@ -7,11 +7,13 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rocket-crud-macros = { path = "../rocket_crud_macros/" }
-rocket = { git = "https://github.com/SergioBenitez/Rocket" }
+rocket-crud = { path = "../rocket_crud/" }
+rocket = { git = "https://github.com/SergioBenitez/Rocket", features = ["json"] }
 diesel = { version = "1.4.6", features = ["postgres", "r2d2"] }
 diesel_migrations = "1.4.0"
 dotenv = "0.15.0"
+serde = "1.0.126"
+serde_json = "1.0.64"
 
 [dependencies.rocket_sync_db_pools]
 git = "https://github.com/SergioBenitez/Rocket"
