@@ -1,8 +1,8 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use syn::{DeriveInput, Path, parse_macro_input};
 use quote::quote;
+use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_attribute]
 pub fn mono_test(_args: TokenStream, item: TokenStream) -> TokenStream {
@@ -33,17 +33,28 @@ pub fn derive_crud_create(input: TokenStream) -> TokenStream {
     todo!()
 }
 
-#[proc_macro_derive(CrudInsertable, attributes(primary_key, generated))]
+#[proc_macro_derive(CrudInsertable, attributes(primary_key, generated, table_name))]
 pub fn derive_crud_insertable(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::ItemStruct);
 
-    let non_generated_fields: Vec<_> = input.fields.iter().filter(|f| !f.attrs.iter().any(
-        |a| a.path.is_ident("generated") || a.path.is_ident("primary_key")
-    )).collect();
+    let table_name = input
+        .attrs
+        .iter()
+        .find(|a| a.path.is_ident("table_name"));
+    let non_generated_fields: Vec<_> = input
+        .fields
+        .iter()
+        .filter(|f| {
+            !f.attrs
+                .iter()
+                .any(|a| a.path.is_ident("generated") || a.path.is_ident("primary_key"))
+        })
+        .collect();
     let ident = quote::format_ident!("New{}", input.ident);
 
     let tokens = quote::quote! {
-        #[derive(Insertable)]
+        #[derive(::diesel::Insertable)]
+        #table_name
         struct #ident {
             #(#non_generated_fields),*
         }

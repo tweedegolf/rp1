@@ -980,6 +980,7 @@ name = "rocket-crud-macros"
 version = "0.1.0"
 dependencies = [
  "darling",
+ "diesel_derives",
  "proc-macro2",
  "quote",
  "syn",
