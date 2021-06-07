@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, Path, parse_macro_input};
 use quote::quote;
 
 #[proc_macro_attribute]
@@ -28,7 +28,26 @@ pub fn mono_test(_args: TokenStream, item: TokenStream) -> TokenStream {
 
 #[proc_macro_derive(CrudCreate, attributes(auto_error))]
 pub fn derive_crud_create(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
+    let _input = parse_macro_input!(input as DeriveInput);
 
     todo!()
+}
+
+#[proc_macro_derive(CrudInsertable, attributes(primary_key, generated))]
+pub fn derive_crud_insertable(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as syn::ItemStruct);
+
+    let non_generated_fields: Vec<_> = input.fields.iter().filter(|f| !f.attrs.iter().any(
+        |a| a.path.is_ident("generated") || a.path.is_ident("primary_key")
+    )).collect();
+    let ident = quote::format_ident!("New{}", input.ident);
+
+    let tokens = quote::quote! {
+        #[derive(Insertable)]
+        struct #ident {
+            #(#non_generated_fields),*
+        }
+    };
+    println!("{}", tokens);
+    tokens.into()
 }
