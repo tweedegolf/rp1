@@ -1,3 +1,4 @@
+#![feature(extended_key_value_attributes)]
 #[macro_use]
 extern crate diesel;
 
@@ -13,11 +14,14 @@ use rocket_sync_db_pools::database;
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[derive(serde::Serialize, Queryable, Insertable, rocket_crud::CrudInsertable, rocket_crud::CrudCreate)]
+// #[crud_db = Db]
+#[derive(
+    serde::Serialize, Queryable, Insertable, rocket_crud::CrudInsertable, rocket_crud::CrudCreate,
+)]
 #[table_name = "foo"]
-#[crud_db = self::Db]
 struct CruddedFoo {
     #[primary_key]
+    #[serde(rename = "foo")]
     id: i32,
     name: String,
     other: String,
