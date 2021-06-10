@@ -1053,6 +1053,7 @@ dependencies = [
 name = "rocket-crud"
 version = "0.1.0"
 dependencies = [
+ "either",
  "rocket-crud-macros",
 ]
 
