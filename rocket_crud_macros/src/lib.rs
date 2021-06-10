@@ -172,19 +172,6 @@ fn derive_crud_insertable(input: &syn::ItemStruct, props: &CrudProps) -> proc_ma
     tokens
 }
 
-/// Get the `foo` out of `#[table_name = "foo"]`
-fn get_table_name(attrs: &[syn::Attribute]) -> Option<syn::Ident> {
-    let table_name_attr = attrs.iter().find(|a| a.path.is_ident("table_name"));
-    if let syn::Meta::NameValue(mnv) = table_name_attr.unwrap().parse_meta().unwrap() {
-        if let syn::Lit::Str(lit_str) = mnv.lit {
-            Some(quote::format_ident!("{}", lit_str.value()))
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
 fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, syn::Ident) {
     let CrudProps { database_struct, new_ident, ident, table_name, schema_path, .. } = props;
 
