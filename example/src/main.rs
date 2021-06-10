@@ -7,23 +7,57 @@ mod schema;
 
 use rocket_sync_db_pools::database;
 
-use schema::foo;
-
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud(database = "Db", schema = "schema", delete = false, table_name = "foo")]
+#[rocket_crud::crud(database = "Db", schema = "schema", delete = false, table_name = "users")]
 #[derive(serde::Serialize, diesel::Queryable)]
-struct CruddedFoo {
+struct User {
     #[primary_key]
     id: i32,
-    name: String,
-    // other: String,
+    username: String,
+    #[generated]
+    created_at: chrono::NaiveDateTime,
+    #[generated]
+    updated_at: chrono::NaiveDateTime,
+}
+
+#[rocket_crud::crud(database = "Db", schema = "schema", delete = false, table_name = "posts")]
+#[derive(serde::Serialize, diesel::Queryable)]
+struct Post {
+    #[primary_key]
+    id: i32,
+    title: String,
+    subtitle: Option<String>,
+    content: String,
+    user_id: i32,
+    #[generated]
+    created_at: chrono::NaiveDateTime,
+    #[generated]
+    updated_at: chrono::NaiveDateTime,
+}
+
+#[rocket_crud::crud(database = "Db", schema = "schema", delete = false, table_name = "comments")]
+#[derive(serde::Serialize, diesel::Queryable)]
+struct Comment {
+    #[primary_key]
+    id: i32,
+    content: String,
+    approved: bool,
+    post_id: i32,
+    user_id: Option<i32>,
+    anonymous_user: Option<String>,
+    #[generated]
+    created_at: chrono::NaiveDateTime,
+    #[generated]
+    updated_at: chrono::NaiveDateTime,
 }
 
 #[rocket::launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/", CruddedFoo::get_routes())
+        .mount("/users", User::get_routes())
+        .mount("/posts", Post::get_routes())
+        .mount("/comments", Comment::get_routes())
         .attach(Db::fairing())
 }

@@ -114,6 +114,8 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
 
     let module_name = props.module_name;
     let ident = props.ident;
+    let schema_path = props.schema_path;
+    let table_name = props.table_name;
 
     for f in input.fields.iter_mut() {
         f.attrs.retain(|a| !a.path.is_ident("generated") && !a.path.is_ident("primary_key"));
@@ -124,6 +126,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
         mod #module_name {
             use super::*;
             use diesel::prelude::*;
+            use #schema_path::#table_name;
 
             #input
 
