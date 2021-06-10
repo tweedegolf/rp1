@@ -1,26 +1,88 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::quote;
 use syn::parse_macro_input;
 
+// Helper function, some values need to be true by default
+fn enabled() -> bool {
+    true
+}
+#[derive(Debug, darling::FromMeta)]
+struct CrudPropsBuilder {
+    #[darling(rename = "database")]
+    database_struct: syn::Path,
+    #[darling(rename = "schema")]
+    schema_path: Option<syn::Path>,
+    #[darling(default = "enabled")]
+    create: bool,
+    #[darling(default = "enabled")]
+    read: bool,
+    #[darling(default = "enabled")]
+    update: bool,
+    #[darling(default = "enabled")]
+    delete: bool,
+    #[darling(default = "enabled")]
+    list: bool,
+    #[darling(default, rename = "module")]
+    module_name: Option<syn::Ident>,
+    #[darling(skip)] // TODO: allow specifying the identifier for the new struct
+    new_ident: Option<syn::Ident>,
+    #[darling(skip)] // TODO: allow specifying the identifier for the update struct
+    update_ident: Option<syn::Ident>,
+}
+
+#[derive(Debug)]
+struct CrudProps {
+    database_struct: syn::Path,
+    schema_path: syn::Path,
+    create: bool,
+    read: bool,
+    update: bool,
+    delete: bool,
+    list: bool,
+    module_name: syn::Ident,
+    ident: syn::Ident,
+    new_ident: syn::Ident,
+    update_ident: syn::Ident,
+}
+
 #[proc_macro_attribute]
-pub fn crud(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
+    use darling::FromMeta;
+
     let mut input = parse_macro_input!(item as syn::ItemStruct);
-    let ident = input.ident.clone();
+    let attr_args = parse_macro_input!(args as syn::AttributeArgs);
+    let props = match CrudPropsBuilder::from_list(&attr_args) {
+        Ok(v) => CrudProps {
+            database_struct: v.database_struct,
+            schema_path: v.schema_path.unwrap_or_else(|| syn::parse_str("crate::schema").unwrap()),
+            ident: input.ident.clone(),
+            new_ident: v.new_ident.unwrap_or_else(|| quote::format_ident!("New{}", &input.ident)),
+            update_ident: v.update_ident.unwrap_or_else(|| quote::format_ident!("Update{}", &input.ident)),
+            module_name: v.module_name.unwrap_or_else(|| syn::Ident::new(&inflector::cases::snakecase::to_snake_case(&input.ident.to_string()), Span::call_site())),
+            create: v.create,
+            read: v.read,
+            update: v.update,
+            delete: v.delete,
+            list: v.list,
+        },
+        Err(e) => return e.write_errors().into(),
+    };
 
     let visibility = input.vis.clone();
     input.vis = syn::Visibility::Public(syn::VisPublic {
         pub_token: syn::Token!(pub)([proc_macro2::Span::call_site()]),
     });
 
-    let crudmod = quote::format_ident!("fkfkffkfk");
+    let module_name = props.module_name;
+    let ident = props.ident;
 
     let tokens = quote::quote! {
 
-        mod #crudmod {
-            use crate::Db;
-            use crate::schema::*;
+        mod #module_name {
+            use super::*;
             use diesel::prelude::*;
 
             #[derive(::rocket_crud::CrudInsertable)]
@@ -37,7 +99,7 @@ pub fn crud(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
 
-        #visibility use self::#crudmod::#ident;
+        #visibility use self::#module_name::#ident;
 
     };
     tokens.into()

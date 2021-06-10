@@ -10,12 +10,11 @@ use rocket_sync_db_pools::database;
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud]
-#[derive(serde::Serialize, Queryable, Insertable)]
+#[rocket_crud::crud(database = "Db", delete = false)]
+#[derive(serde::Serialize, Queryable)]
 #[table_name = "foo"]
 struct CruddedFoo {
     #[primary_key]
-    #[serde(rename = "foo")]
     id: i32,
     name: String,
     // other: String,
