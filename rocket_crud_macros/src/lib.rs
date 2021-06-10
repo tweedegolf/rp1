@@ -13,7 +13,7 @@ fn enabled() -> bool {
 struct CrudPropsBuilder {
     #[darling(rename = "database")]
     database_struct: syn::Path,
-    #[darling(rename = "schema")]
+    #[darling(default, rename = "schema")]
     schema_path: Option<syn::Path>,
     #[darling(default = "enabled")]
     create: bool,

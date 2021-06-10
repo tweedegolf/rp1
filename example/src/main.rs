@@ -7,10 +7,12 @@ mod schema;
 
 use rocket_sync_db_pools::database;
 
+use schema::foo;
+
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud(database = "Db", delete = false)]
+#[rocket_crud::crud(database = "Db", schema = "schema", delete = false)]
 #[derive(serde::Serialize, Queryable)]
 #[table_name = "foo"]
 struct CruddedFoo {
