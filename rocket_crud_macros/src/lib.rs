@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::parse_macro_input;
 
 // Helper function, some values need to be true by default
@@ -31,6 +31,8 @@ struct CrudPropsBuilder {
     new_ident: Option<syn::Ident>,
     #[darling(skip)] // TODO: allow specifying the identifier for the update struct
     update_ident: Option<syn::Ident>,
+    #[darling(default)]
+    table_name: Option<syn::Ident>,
 }
 
 #[derive(Debug)]
@@ -46,14 +48,17 @@ struct CrudProps {
     ident: syn::Ident,
     new_ident: syn::Ident,
     update_ident: syn::Ident,
+    table_name: syn::Ident,
 }
 
 #[proc_macro_attribute]
 pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     use darling::FromMeta;
+    use inflector::cases::snakecase::to_snake_case;
 
     let mut input = parse_macro_input!(item as syn::ItemStruct);
     let attr_args = parse_macro_input!(args as syn::AttributeArgs);
+
     let props = match CrudPropsBuilder::from_list(&attr_args) {
         Ok(v) => CrudProps {
             database_struct: v.database_struct,
@@ -61,12 +66,13 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
             ident: input.ident.clone(),
             new_ident: v.new_ident.unwrap_or_else(|| quote::format_ident!("New{}", &input.ident)),
             update_ident: v.update_ident.unwrap_or_else(|| quote::format_ident!("Update{}", &input.ident)),
-            module_name: v.module_name.unwrap_or_else(|| syn::Ident::new(&inflector::cases::snakecase::to_snake_case(&input.ident.to_string()), Span::call_site())),
+            module_name: v.module_name.unwrap_or_else(|| syn::Ident::new(&to_snake_case(&input.ident.to_string()), Span::call_site())),
             create: v.create,
             read: v.read,
             update: v.update,
             delete: v.delete,
             list: v.list,
+            table_name: v.table_name.unwrap_or_else(|| format_ident!("{}", to_snake_case(&input.ident.to_string()))),
         },
         Err(e) => return e.write_errors().into(),
     };
@@ -76,8 +82,42 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
         pub_token: syn::Token!(pub)([proc_macro2::Span::call_site()]),
     });
 
+    let mut tokens = vec![];
+    let mut funcs = vec![];
+    if props.create {
+        tokens.push(derive_crud_insertable(&input, &props));
+
+        let (toks, func) = derive_crud_create(&props);
+        tokens.push(toks);
+        funcs.push(func);
+    }
+
+    if props.read {
+        let (toks, func) = derive_crud_read(&props);
+        tokens.push(toks);
+        funcs.push(func);
+    }
+
+    if props.update {
+        tokens.push(derive_crud_updatable(&input, &props));
+
+        let (toks, func) = derive_crud_update(&props);
+        tokens.push(toks);
+        funcs.push(func);
+    }
+
+    if props.delete {
+        let (toks, func) = derive_crud_delete(&props);
+        tokens.push(toks);
+        funcs.push(func);
+    }
+
     let module_name = props.module_name;
     let ident = props.ident;
+
+    for f in input.fields.iter_mut() {
+        f.attrs.retain(|a| !a.path.is_ident("generated") && !a.path.is_ident("primary_key"));
+    }
 
     let tokens = quote::quote! {
 
@@ -85,16 +125,13 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
             use super::*;
             use diesel::prelude::*;
 
-            #[derive(::rocket_crud::CrudInsertable)]
-            #[derive(::rocket_crud::CrudCreate)]
-            #[derive(::rocket_crud::CrudRead)]
-            #[derive(::rocket_crud::CrudDelete)]
-            #[derive(::rocket_crud::CrudUpdate)]
             #input
+
+            #(#tokens)*
 
             impl #ident {
                 pub fn get_routes() -> Vec<::rocket::Route> {
-                    rocket::routes![create_fn, read_fn, delete_fn, update_fn]
+                    rocket::routes![#(#funcs),*]
                 }
             }
         }
@@ -105,12 +142,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     tokens.into()
 }
 
-#[proc_macro_derive(CrudInsertable, attributes(primary_key, generated, table_name))]
-pub fn derive_crud_insertable(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::ItemStruct);
-    let orig_ident = input.ident;
-
-    let table_name = input.attrs.iter().find(|a| a.path.is_ident("table_name"));
+fn derive_crud_insertable(input: &syn::ItemStruct, props: &CrudProps) -> proc_macro2::TokenStream {
     let non_generated_fields: Vec<_> = input
         .fields
         .iter()
@@ -120,36 +152,24 @@ pub fn derive_crud_insertable(input: TokenStream) -> TokenStream {
                 .any(|a| a.path.is_ident("generated") || a.path.is_ident("primary_key"))
         })
         .collect();
-    let ident = quote::format_ident!("New{}", &orig_ident);
+
+    let new_ident = &props.new_ident;
+    let orig_ident = &props.ident;
+    let table_name = props.table_name.to_string();
 
     let tokens = quote::quote! {
         #[derive(::diesel::Insertable)]
         #[derive(::diesel::Queryable)]
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
-        #table_name
-        struct #ident {
+        #[table_name = #table_name]
+        struct #new_ident {
             #(#non_generated_fields),*
         }
 
         impl ::rocket_crud::CrudInsertableMarker for #orig_ident {}
     };
-    tokens.into()
-}
-
-#[derive(Debug)]
-struct DatabasePath {
-    eq_token: syn::Token![=],
-    value: syn::Path,
-}
-
-impl syn::parse::Parse for DatabasePath {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        Ok(DatabasePath {
-            eq_token: input.parse()?,
-            value: input.parse()?,
-        })
-    }
+    tokens
 }
 
 /// Get the `foo` out of `#[table_name = "foo"]`
@@ -165,31 +185,16 @@ fn get_table_name(attrs: &[syn::Attribute]) -> Option<syn::Ident> {
         None
     }
 }
-
-//    let db_ident = input.attrs.iter().find(|a| a.path.is_ident("crud_db")).map(|db| {
-//        let tokens: TokenStream = db.tokens.clone().into();
-//        let input: DatabasePath = syn::parse(tokens).expect("No valid database path");
-//        // let input = parse_macro_input!(tokens as DatabasePath);
-//        input.value
-//    }).expect("Database connection name is required");
-
-#[proc_macro_derive(CrudCreate, attributes(crud_db, table_name))]
-pub fn derive_crud_create(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::ItemStruct);
-    let orig_ident = input.ident;
-    let new_ident = quote::format_ident!("New{}", &orig_ident);
-
-    let db_ident = quote::format_ident!("Db");
-
-    let table_name = get_table_name(&input.attrs).unwrap();
+fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, syn::Ident) {
+    let CrudProps { database_struct, new_ident, ident, table_name, schema_path, .. } = props;
 
     let tokens = quote! {
         #[::rocket::post("/", format = "json", data = "<value>")]
-        async fn create_fn(db: #db_ident, value: ::rocket::serde::json::Json<#new_ident>) -> ::rocket::serde::json::Json<#orig_ident> {
+        async fn create_fn(db: #database_struct, value: ::rocket::serde::json::Json<#new_ident>) -> ::rocket::serde::json::Json<#ident> {
             let value = value.into_inner();
 
             let result = db.run(move |conn| {
-                diesel::insert_into(crate::schema::#table_name::table)
+                diesel::insert_into(#schema_path::#table_name::table)
                     .values(&value)
                     .get_result(conn)
             })
@@ -199,24 +204,18 @@ pub fn derive_crud_create(input: TokenStream) -> TokenStream {
             ::rocket::serde::json::Json(result)
         }
     };
-    tokens.into()
+    (tokens, format_ident!("create_fn"))
 }
 
-#[proc_macro_derive(CrudRead, attributes(crud_db, table_name))]
-pub fn derive_crud_read(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::ItemStruct);
-    let orig_ident = input.ident;
-
-    let db_ident = quote::format_ident!("Db");
-
-    let table_name = get_table_name(&input.attrs).unwrap();
+fn derive_crud_read(props: &CrudProps) -> (proc_macro2::TokenStream, syn::Ident) {
+    let CrudProps { database_struct, ident, schema_path, table_name, .. } = props;
 
     let tokens = quote! {
         #[::rocket::get("/<id>")]
-        async fn read_fn(db: #db_ident, id: i32) -> ::rocket::serde::json::Json<#orig_ident> {
+        async fn read_fn(db: #database_struct, id: i32) -> ::rocket::serde::json::Json<#ident> {
 
             let result = db.run(move |conn| {
-                crate::schema::#table_name::table
+                #schema_path::#table_name::table
                     .find(id)
                     .first(conn)
             })
@@ -226,20 +225,11 @@ pub fn derive_crud_read(input: TokenStream) -> TokenStream {
             ::rocket::serde::json::Json(result)
         }
     };
-    tokens.into()
+
+    (tokens, format_ident!("read_fn"))
 }
 
-#[proc_macro_derive(CrudUpdate, attributes(crud_db, table_name))]
-pub fn derive_crud_update(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::ItemStruct);
-    let orig_ident = input.ident;
-
-    let db_ident = quote::format_ident!("Db");
-
-    let table_name = get_table_name(&input.attrs).unwrap();
-
-    let primary_key_col_name = quote::format_ident!("id");
-
+fn derive_crud_updatable(input: &syn::ItemStruct, props: &CrudProps) -> proc_macro2::TokenStream {
     let non_generated_fields: Vec<_> = input
         .fields
         .iter()
@@ -260,30 +250,35 @@ pub fn derive_crud_update(input: TokenStream) -> TokenStream {
         })
         .collect();
 
-    let ident = quote::format_ident!("Update{}", &orig_ident);
+    let table_name = props.table_name.to_string();
 
-    let table_name_attribute = input.attrs.iter().find(|a| a.path.is_ident("table_name"));
-    let update_struct = quote::quote! {
+    let CrudProps { ident, update_ident, .. } = props;
+
+    quote::quote! {
         #[derive(::diesel::Queryable)]
         #[derive(::diesel::AsChangeset)]
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
         #[derive(Default)]
-        #table_name_attribute
-        struct #ident {
+        #[table_name = #table_name]
+        struct #update_ident {
             #(#non_generated_fields),*
         }
-    };
+
+        impl ::rocket_crud::CrudUpdatableMarker for #ident {}
+    }
+}
+
+fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, syn::Ident) {
+    let CrudProps { database_struct, ident, update_ident, schema_path, table_name, .. } = props;
 
     let tokens = quote! {
-        #update_struct
-
         #[::rocket::patch("/<id>", format = "json", data = "<value>")]
-        async fn update_fn(db: #db_ident, id: i32, value: ::rocket::serde::json::Json<#ident>) -> ::rocket::serde::json::Json<#orig_ident> {
+        async fn update_fn(db: #database_struct, id: i32, value: ::rocket::serde::json::Json<#update_ident>) -> ::rocket::serde::json::Json<#ident> {
             let value = value.into_inner();
 
             let result = db.run(move |conn| {
-                diesel::update(crate::schema::#table_name::table.find(id))
+                diesel::update(#schema_path::#table_name::table.find(id))
                     .set(&value)
                     .get_result(conn)
             })
@@ -293,23 +288,18 @@ pub fn derive_crud_update(input: TokenStream) -> TokenStream {
             ::rocket::serde::json::Json(result)
         }
     };
-    tokens.into()
+    (tokens, format_ident!("update_fn"))
 }
 
-#[proc_macro_derive(CrudDelete, attributes(crud_db, table_name))]
-pub fn derive_crud_delete(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::ItemStruct);
-
-    let db_ident = quote::format_ident!("Db");
-
-    let table_name = get_table_name(&input.attrs).unwrap();
+fn derive_crud_delete(props: &CrudProps) -> (proc_macro2::TokenStream, syn::Ident) {
+    let CrudProps { database_struct, table_name, schema_path, .. } = props;
 
     let tokens = quote! {
         #[::rocket::delete("/<id>")]
-        async fn delete_fn(db: #db_ident, id: i32) -> ::rocket::serde::json::Json<usize> {
+        async fn delete_fn(db: #database_struct, id: i32) -> ::rocket::serde::json::Json<usize> {
 
             let result = db.run(move |conn| {
-                diesel::delete(crate::schema::#table_name::table.find(id)).execute(conn)
+                diesel::delete(#schema_path::#table_name::table.find(id)).execute(conn)
             })
             .await
             .unwrap();
@@ -317,5 +307,6 @@ pub fn derive_crud_delete(input: TokenStream) -> TokenStream {
             ::rocket::serde::json::Json(result)
         }
     };
-    tokens.into()
+
+    (tokens, format_ident!("delete_fn"))
 }

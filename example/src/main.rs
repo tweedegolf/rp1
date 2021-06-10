@@ -12,9 +12,8 @@ use schema::foo;
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud(database = "Db", schema = "schema", delete = false)]
-#[derive(serde::Serialize, Queryable)]
-#[table_name = "foo"]
+#[rocket_crud::crud(database = "Db", schema = "schema", delete = false, table_name = "foo")]
+#[derive(serde::Serialize, diesel::Queryable)]
 struct CruddedFoo {
     #[primary_key]
     id: i32,
