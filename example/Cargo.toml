@@ -9,11 +9,12 @@ edition = "2018"
 [dependencies]
 rocket-crud = { path = "../rocket_crud/" }
 rocket = { git = "https://github.com/SergioBenitez/Rocket", features = ["json"] }
-diesel = { version = "1.4.6", features = ["postgres", "r2d2"] }
+diesel = { version = "1.4.6", features = ["postgres", "r2d2", "chrono"] }
 diesel_migrations = "1.4.0"
 dotenv = "0.15.0"
 serde = "1.0.126"
 serde_json = "1.0.64"
+chrono = { version = "0.4.19", features = ["serde"] }
 
 [dependencies.rocket_sync_db_pools]
 git = "https://github.com/SergioBenitez/Rocket"
