@@ -8,3 +8,5 @@ edition = "2018"
 [dependencies]
 rocket-crud-macros = { path = "../rocket_crud_macros/" }
 either = "1.6.1"
+serde = "1.0.126"
+rocket = "0.5.0-rc.1"

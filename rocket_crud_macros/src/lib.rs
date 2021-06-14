@@ -113,7 +113,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if props.list {
-        let (toks, mut func) = derive_crud_list(&props);
+        let (toks, mut func) = derive_crud_list(&input, &props);
         tokens.push(toks);
         funcs.append(&mut func);
     }
@@ -318,11 +318,24 @@ fn derive_crud_delete(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
     (tokens, vec![format_ident!("delete_fn")])
 }
 
-fn derive_crud_list(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
+fn derive_crud_list(input: &syn::ItemStruct, props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
     let CrudProps { database_struct, ident, schema_path, table_name, .. } = props;
+    let fields = input.fields.iter().map(|f| f.ident.clone().expect("Struct must have named fields"));
+
     let tokens = quote! {
-        #[::rocket::get("/")]
-        async fn list_fn(db: #database_struct) -> ::rocket::serde::json::Json<Vec<#ident>> {
+        #[doc(hidden)]
+        #[allow(non_camel_case_types)]
+        #[derive(::rocket::FromFormField, Debug)]
+        enum SortableFields {
+            #(#fields),*
+        }
+
+        // For now these can be the same
+        type FilterableFields = SortableFields;
+
+        #[::rocket::get("/?<sort>")]
+        async fn list_fn(db: #database_struct, sort: Vec<::rocket_crud::SortSpec<SortableFields>>) -> ::rocket::serde::json::Json<Vec<#ident>> {
+            println!("{:?}", sort);
             let result = db.run(move |conn| {
                 #schema_path::#table_name::table.load(conn)
             })

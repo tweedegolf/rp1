@@ -43,6 +43,7 @@ struct Comment {
     #[primary_key]
     id: i32,
     content: String,
+    #[serde(default)]
     approved: bool,
     post_id: i32,
     user_id: Option<i32>,

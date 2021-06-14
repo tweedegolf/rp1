@@ -1,0 +1,25 @@
+###
+
+GET http://localhost:8000/users?sort=username&sort=created_at HTTP/1.1
+
+###
+
+POST http://localhost:8000/users HTTP/1.1
+Content-Type: application/json
+
+{
+  "username": "ruben"
+}
+
+###
+
+POST http://localhost:8000/users HTTP/1.1
+Content-Type: application/json
+
+{
+  "username": "arjen"
+}
+
+###
+
+DELETE http://localhost:8000/users/1 HTTP/1.1
