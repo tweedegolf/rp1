@@ -51,12 +51,6 @@ struct CrudProps {
     table_name: syn::Ident,
 }
 
-/// Attributes that we must drop from the final output.
-/// Also we treat fields with these attributes differently in some cases
-fn must_skip_attribute(a: &syn::Attribute) -> bool {
-    !a.path.is_ident("generated") && !a.path.is_ident("primary_key")
-}
-
 #[proc_macro_attribute]
 pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     use darling::FromMeta;
@@ -130,7 +124,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     let table_name = props.table_name;
 
     for f in input.fields.iter_mut() {
-        f.attrs.retain(|a| !must_skip_attribute(a));
+        f.attrs.retain(|a| !a.path.is_ident("generated") && !a.path.is_ident("primary_key"));
     }
 
     let tokens = quote::quote! {
@@ -161,7 +155,11 @@ fn derive_crud_insertable(input: &syn::ItemStruct, props: &CrudProps) -> proc_ma
     let non_generated_fields: Vec<_> = input
         .fields
         .iter()
-        .filter(|f| !f.attrs.iter().any(must_skip_attribute))
+        .filter(|f| {
+            !f.attrs
+                .iter()
+                .any(|a| a.path.is_ident("generated") || a.path.is_ident("primary_key"))
+        })
         .collect();
 
     let new_ident = &props.new_ident;
@@ -242,7 +240,11 @@ fn derive_crud_updatable(input: &syn::ItemStruct, props: &CrudProps) -> proc_mac
     let non_generated_fields: Vec<_> = input
         .fields
         .iter()
-        .filter(|f| !f.attrs.iter().any(must_skip_attribute))
+        .filter(|f| {
+            !f.attrs
+                .iter()
+                .any(|a| a.path.is_ident("generated") || a.path.is_ident("primary_key"))
+        })
         .map(|field| {
             let mut field = field.clone();
 
