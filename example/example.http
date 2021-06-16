@@ -4,6 +4,11 @@ GET http://localhost:8000/users?sort=username&sort=created_at HTTP/1.1
 
 ###
 
+GET http://localhost:8000/users?sort=username&sort=created_at&offset=1&limit=1 HTTP/1.1
+
+
+###
+
 POST http://localhost:8000/users HTTP/1.1
 Content-Type: application/json
 

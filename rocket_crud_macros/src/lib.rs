@@ -33,6 +33,8 @@ struct CrudPropsBuilder {
     update_ident: Option<syn::Ident>,
     #[darling(default)]
     table_name: Option<syn::Ident>,
+    #[darling(default)]
+    max_limit: Option<i64>,
 }
 
 #[derive(Debug)]
@@ -49,6 +51,7 @@ struct CrudProps {
     new_ident: syn::Ident,
     update_ident: syn::Ident,
     table_name: syn::Ident,
+    max_limit: i64,
 }
 
 #[proc_macro_attribute]
@@ -83,6 +86,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
             table_name: v
                 .table_name
                 .unwrap_or_else(|| format_ident!("{}", to_snake_case(&input.ident.to_string()))),
+            max_limit: v.max_limit.unwrap_or(100),
         },
         Err(e) => return e.write_errors().into(),
     };
@@ -374,6 +378,7 @@ fn derive_crud_list(
         .iter()
         .map(|f| f.ident.clone().expect("Struct must have named fields"))
         .collect();
+    let max_limit = props.max_limit;
 
     let tokens = quote! {
         #[doc(hidden)]
@@ -391,11 +396,31 @@ fn derive_crud_list(
             }
         }
 
-        #[::rocket::get("/?<sort>")]
-        async fn list_fn(db: #database_struct, sort: Vec<::rocket_crud::SortSpec<SortableFields>>) -> ::rocket::serde::json::Json<Vec<#ident>> {
-            println!("{:?}", sort);
+        #[::rocket::get("/?<sort>&<offset>&<limit>")]
+        async fn list_fn(
+            db: #database_struct,
+            sort: Vec<::rocket_crud::SortSpec<SortableFields>>,
+            offset: Option<i64>,
+            limit: Option<i64>,
+        ) -> ::rocket::serde::json::Json<Vec<#ident>> {
+            let offset = i64::max(0, offset.unwrap_or(0));
+            let limit = i64::max(1, i64::min(#max_limit, limit.unwrap_or(#max_limit)));
             let result = db.run(move |conn| {
-                #schema_path::#table_name::table.load(conn)
+                use ::rocket_crud::SortDirection;
+                use ::diesel::expression::Expression;
+                let mut query = #schema_path::#table_name::table.offset(offset).limit(limit).into_boxed();
+                for sort_spec in sort {
+                    match sort_spec.field {
+                        #(SortableFields::#fields => {
+                            query = if sort_spec.direction == SortDirection::Asc {
+                                query.then_order_by(#schema_path::#table_name::columns::#fields.asc())
+                            } else {
+                                query.then_order_by(#schema_path::#table_name::columns::#fields.desc())
+                            };
+                        }),*
+                    }
+                }
+                query.load(conn)
             })
             .await
             .unwrap();
