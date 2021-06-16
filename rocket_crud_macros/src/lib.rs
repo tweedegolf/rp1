@@ -62,17 +62,27 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     let props = match CrudPropsBuilder::from_list(&attr_args) {
         Ok(v) => CrudProps {
             database_struct: v.database_struct,
-            schema_path: v.schema_path.unwrap_or_else(|| syn::parse_str("crate::schema").unwrap()),
+            schema_path: v
+                .schema_path
+                .unwrap_or_else(|| syn::parse_str("crate::schema").unwrap()),
             ident: input.ident.clone(),
-            new_ident: v.new_ident.unwrap_or_else(|| quote::format_ident!("New{}", &input.ident)),
-            update_ident: v.update_ident.unwrap_or_else(|| quote::format_ident!("Update{}", &input.ident)),
-            module_name: v.module_name.unwrap_or_else(|| syn::Ident::new(&to_snake_case(&input.ident.to_string()), Span::call_site())),
+            new_ident: v
+                .new_ident
+                .unwrap_or_else(|| quote::format_ident!("New{}", &input.ident)),
+            update_ident: v
+                .update_ident
+                .unwrap_or_else(|| quote::format_ident!("Update{}", &input.ident)),
+            module_name: v.module_name.unwrap_or_else(|| {
+                syn::Ident::new(&to_snake_case(&input.ident.to_string()), Span::call_site())
+            }),
             create: v.create,
             read: v.read,
             update: v.update,
             delete: v.delete,
             list: v.list,
-            table_name: v.table_name.unwrap_or_else(|| format_ident!("{}", to_snake_case(&input.ident.to_string()))),
+            table_name: v
+                .table_name
+                .unwrap_or_else(|| format_ident!("{}", to_snake_case(&input.ident.to_string()))),
         },
         Err(e) => return e.write_errors().into(),
     };
@@ -124,7 +134,8 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     let table_name = props.table_name;
 
     for f in input.fields.iter_mut() {
-        f.attrs.retain(|a| !a.path.is_ident("generated") && !a.path.is_ident("primary_key"));
+        f.attrs
+            .retain(|a| !a.path.is_ident("generated") && !a.path.is_ident("primary_key"));
     }
 
     let tokens = quote::quote! {
@@ -182,7 +193,14 @@ fn derive_crud_insertable(input: &syn::ItemStruct, props: &CrudProps) -> proc_ma
 }
 
 fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
-    let CrudProps { database_struct, new_ident, ident, table_name, schema_path, .. } = props;
+    let CrudProps {
+        database_struct,
+        new_ident,
+        ident,
+        table_name,
+        schema_path,
+        ..
+    } = props;
 
     let tokens = quote! {
         #[::rocket::post("/", format = "json", data = "<value>")]
@@ -204,7 +222,13 @@ fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
 }
 
 fn derive_crud_read(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
-    let CrudProps { database_struct, ident, schema_path, table_name, .. } = props;
+    let CrudProps {
+        database_struct,
+        ident,
+        schema_path,
+        table_name,
+        ..
+    } = props;
 
     let tokens = quote! {
         #[::rocket::get("/<id>")]
@@ -259,7 +283,11 @@ fn derive_crud_updatable(input: &syn::ItemStruct, props: &CrudProps) -> proc_mac
 
     let table_name = props.table_name.to_string();
 
-    let CrudProps { ident, update_ident, .. } = props;
+    let CrudProps {
+        ident,
+        update_ident,
+        ..
+    } = props;
 
     quote::quote! {
         #[derive(::diesel::Queryable)]
@@ -277,7 +305,14 @@ fn derive_crud_updatable(input: &syn::ItemStruct, props: &CrudProps) -> proc_mac
 }
 
 fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
-    let CrudProps { database_struct, ident, update_ident, schema_path, table_name, .. } = props;
+    let CrudProps {
+        database_struct,
+        ident,
+        update_ident,
+        schema_path,
+        table_name,
+        ..
+    } = props;
 
     let tokens = quote! {
         #[::rocket::patch("/<id>", format = "json", data = "<value>")]
@@ -299,7 +334,12 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
 }
 
 fn derive_crud_delete(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
-    let CrudProps { database_struct, table_name, schema_path, .. } = props;
+    let CrudProps {
+        database_struct,
+        table_name,
+        schema_path,
+        ..
+    } = props;
 
     let tokens = quote! {
         #[::rocket::delete("/<id>")]
@@ -318,9 +358,22 @@ fn derive_crud_delete(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
     (tokens, vec![format_ident!("delete_fn")])
 }
 
-fn derive_crud_list(input: &syn::ItemStruct, props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
-    let CrudProps { database_struct, ident, schema_path, table_name, .. } = props;
-    let fields = input.fields.iter().map(|f| f.ident.clone().expect("Struct must have named fields"));
+fn derive_crud_list(
+    input: &syn::ItemStruct,
+    props: &CrudProps,
+) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
+    let CrudProps {
+        database_struct,
+        ident,
+        schema_path,
+        table_name,
+        ..
+    } = props;
+    let fields: Vec<_> = input
+        .fields
+        .iter()
+        .map(|f| f.ident.clone().expect("Struct must have named fields"))
+        .collect();
 
     let tokens = quote! {
         #[doc(hidden)]
@@ -330,8 +383,13 @@ fn derive_crud_list(input: &syn::ItemStruct, props: &CrudProps) -> (proc_macro2:
             #(#fields),*
         }
 
-        // For now these can be the same
-        type FilterableFields = SortableFields;
+        impl ::std::fmt::Display for SortableFields {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                write!(f, "{}", match self {
+                    #(SortableFields::#fields => stringify!(#fields)),*
+                })
+            }
+        }
 
         #[::rocket::get("/?<sort>")]
         async fn list_fn(db: #database_struct, sort: Vec<::rocket_crud::SortSpec<SortableFields>>) -> ::rocket::serde::json::Json<Vec<#ident>> {
