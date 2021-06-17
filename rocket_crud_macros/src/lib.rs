@@ -4,6 +4,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::parse_macro_input;
+use syn::{GenericArgument, Type};
 
 // Helper function, some values need to be true by default
 fn enabled() -> bool {
@@ -292,7 +293,21 @@ fn derive_crud_updatable(
 ) -> proc_macro2::TokenStream {
     let transform = |t| syn::parse(quote!(Option<#t>).into()).unwrap();
 
+    // add a special annotation if the field is an option already. By default, serde cannot
+    // distinguish between Option<T> and Option<Option<T>>, which means that setting a field to
+    // NULL explicitly is the same as omitting the field from the input. That is not what we want
+    // of course, so we fix that here
+    use syn::parse::Parser;
+    let parser = syn::Attribute::parse_outer;
+    let option_of_option = parser
+        .parse2(quote!(#[serde(default, deserialize_with = "::rocket_crud::double_option")]))
+        .unwrap();
+
     for field in non_generated_fields.iter_mut() {
+        if is_option_ty(&field.ty) {
+            field.attrs.push(option_of_option[0].clone());
+        }
+
         field.ty = transform(field.ty.clone());
     }
 
@@ -441,4 +456,29 @@ fn derive_crud_list(
     };
 
     (tokens, vec![format_ident!("list_fn")])
+}
+
+// taken from https://github.com/diesel-rs/diesel/blob/master/diesel_derives/src/util.rs#L28
+fn is_option_ty(ty: &Type) -> bool {
+    option_ty_arg(ty).is_some()
+}
+
+fn option_ty_arg(ty: &Type) -> Option<&Type> {
+    use syn::PathArguments::AngleBracketed;
+
+    match *ty {
+        Type::Path(ref ty) => {
+            let last_segment = ty.path.segments.iter().last().unwrap();
+            match last_segment.arguments {
+                AngleBracketed(ref args) if last_segment.ident == "Option" => {
+                    match args.args.iter().last() {
+                        Some(&GenericArgument::Type(ref ty)) => Some(ty),
+                        _ => None,
+                    }
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
 }

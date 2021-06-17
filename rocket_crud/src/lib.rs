@@ -6,6 +6,8 @@ pub trait CrudUpdatableMarker {}
 
 pub use either::Either;
 
+use serde::de::{Deserialize, Deserializer};
+
 #[derive(serde::Deserialize, serde::Serialize, rocket::FromFormField, Debug, PartialEq, Eq)]
 pub enum SortDirection {
     #[serde(rename = "asc")]
@@ -75,4 +77,12 @@ impl<'v, T: rocket::form::FromFormField<'v>> rocket::form::FromFormField<'v> for
     fn default() -> Option<Self> {
         None
     }
+}
+
+pub fn double_option<'de, T, D>(de: D) -> Result<Option<Option<T>>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Deserialize::deserialize(de).map(Some)
 }
