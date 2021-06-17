@@ -54,6 +54,12 @@ struct CrudProps {
     max_limit: i64,
 }
 
+/// These fields are often treated differently from the fields that contain
+/// user-supplied values
+fn is_generated_or_primary_key(a: &syn::Attribute) -> bool {
+    a.path.is_ident("generated") || a.path.is_ident("primary_key")
+}
+
 #[proc_macro_attribute]
 pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     use darling::FromMeta;
@@ -96,10 +102,30 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
         pub_token: syn::Token!(pub)([proc_macro2::Span::call_site()]),
     });
 
+    // names of _all_ fields: both generated and user-supplied
+    let field_names: Vec<_> = input
+        .fields
+        .iter()
+        .map(|f| f.ident.clone().expect("Struct must have named fields"))
+        .collect();
+
+    // collect all fields that are not generated (i.e. user-supplied data)
+    let non_generated_fields: Vec<_> = input
+        .fields
+        .iter()
+        .filter(|f| !f.attrs.iter().any(is_generated_or_primary_key))
+        .cloned()
+        .collect();
+
+    // now drop all attributes that we have added
+    for f in input.fields.iter_mut() {
+        f.attrs.retain(|a| !is_generated_or_primary_key(a));
+    }
+
     let mut tokens = vec![];
     let mut funcs = vec![];
     if props.create {
-        tokens.push(derive_crud_insertable(&input, &props));
+        tokens.push(derive_crud_insertable(&non_generated_fields, &props));
 
         let (toks, mut func) = derive_crud_create(&props);
         tokens.push(toks);
@@ -113,7 +139,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if props.update {
-        tokens.push(derive_crud_updatable(&input, &props));
+        tokens.push(derive_crud_updatable(non_generated_fields, &props));
 
         let (toks, mut func) = derive_crud_update(&props);
         tokens.push(toks);
@@ -127,7 +153,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if props.list {
-        let (toks, mut func) = derive_crud_list(&input, &props);
+        let (toks, mut func) = derive_crud_list(&field_names, &props);
         tokens.push(toks);
         funcs.append(&mut func);
     }
@@ -136,11 +162,6 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     let ident = props.ident;
     let schema_path = props.schema_path;
     let table_name = props.table_name;
-
-    for f in input.fields.iter_mut() {
-        f.attrs
-            .retain(|a| !a.path.is_ident("generated") && !a.path.is_ident("primary_key"));
-    }
 
     let tokens = quote::quote! {
 
@@ -166,17 +187,10 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     tokens.into()
 }
 
-fn derive_crud_insertable(input: &syn::ItemStruct, props: &CrudProps) -> proc_macro2::TokenStream {
-    let non_generated_fields: Vec<_> = input
-        .fields
-        .iter()
-        .filter(|f| {
-            !f.attrs
-                .iter()
-                .any(|a| a.path.is_ident("generated") || a.path.is_ident("primary_key"))
-        })
-        .collect();
-
+fn derive_crud_insertable(
+    non_generated_fields: &[syn::Field],
+    props: &CrudProps,
+) -> proc_macro2::TokenStream {
     let new_ident = &props.new_ident;
     let orig_ident = &props.ident;
     let table_name = props.table_name.to_string();
@@ -208,7 +222,11 @@ fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
 
     let tokens = quote! {
         #[::rocket::post("/", format = "json", data = "<value>")]
-        async fn create_fn(db: #database_struct, value: ::rocket::serde::json::Json<#new_ident>) -> ::rocket::serde::json::Json<#ident> {
+        async fn create_fn(
+            db: #database_struct,
+            value: ::rocket::serde::json::Json<#new_ident>
+        ) -> ::rocket::serde::json::Json<#ident>
+        {
             let value = value.into_inner();
 
             let result = db.run(move |conn| {
@@ -236,7 +254,11 @@ fn derive_crud_read(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Id
 
     let tokens = quote! {
         #[::rocket::get("/<id>")]
-        async fn read_fn(db: #database_struct, id: i32) -> (::rocket::http::Status, ::rocket_crud::Either<::rocket::serde::json::Json<#ident>, ::rocket::serde::json::Value>) {
+        async fn read_fn(
+            db: #database_struct,
+            id: i32
+        ) -> (::rocket::http::Status, ::rocket_crud::Either<::rocket::serde::json::Json<#ident>, ::rocket::serde::json::Value>)
+        {
             use ::rocket::http::Status;
             use ::diesel::result::Error;
             use ::rocket_crud::Either;
@@ -264,26 +286,15 @@ fn derive_crud_read(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Id
     (tokens, vec![format_ident!("read_fn")])
 }
 
-fn derive_crud_updatable(input: &syn::ItemStruct, props: &CrudProps) -> proc_macro2::TokenStream {
-    let non_generated_fields: Vec<_> = input
-        .fields
-        .iter()
-        .filter(|f| {
-            !f.attrs
-                .iter()
-                .any(|a| a.path.is_ident("generated") || a.path.is_ident("primary_key"))
-        })
-        .map(|field| {
-            let mut field = field.clone();
+fn derive_crud_updatable(
+    mut non_generated_fields: Vec<syn::Field>,
+    props: &CrudProps,
+) -> proc_macro2::TokenStream {
+    let transform = |t| syn::parse(quote!(Option<#t>).into()).unwrap();
 
-            let t = field.ty;
-            let new_type = syn::parse(quote!(Option<#t>).into()).unwrap();
-
-            field.ty = new_type;
-
-            field
-        })
-        .collect();
+    for field in non_generated_fields.iter_mut() {
+        field.ty = transform(field.ty.clone());
+    }
 
     let table_name = props.table_name.to_string();
 
@@ -320,7 +331,12 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
 
     let tokens = quote! {
         #[::rocket::patch("/<id>", format = "json", data = "<value>")]
-        async fn update_fn(db: #database_struct, id: i32, value: ::rocket::serde::json::Json<#update_ident>) -> ::rocket::serde::json::Json<#ident> {
+        async fn update_fn(
+            db: #database_struct,
+            id: i32,
+            value: ::rocket::serde::json::Json<#update_ident>
+        ) -> ::rocket::serde::json::Json<#ident>
+        {
             let value = value.into_inner();
 
             let result = db.run(move |conn| {
@@ -363,7 +379,7 @@ fn derive_crud_delete(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
 }
 
 fn derive_crud_list(
-    input: &syn::ItemStruct,
+    field_names: &[syn::Ident],
     props: &CrudProps,
 ) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
     let CrudProps {
@@ -373,11 +389,6 @@ fn derive_crud_list(
         table_name,
         ..
     } = props;
-    let fields: Vec<_> = input
-        .fields
-        .iter()
-        .map(|f| f.ident.clone().expect("Struct must have named fields"))
-        .collect();
     let max_limit = props.max_limit;
 
     let tokens = quote! {
@@ -385,13 +396,13 @@ fn derive_crud_list(
         #[allow(non_camel_case_types)]
         #[derive(::rocket::FromFormField, Debug)]
         enum SortableFields {
-            #(#fields),*
+            #(#field_names),*
         }
 
         impl ::std::fmt::Display for SortableFields {
             fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
                 write!(f, "{}", match self {
-                    #(SortableFields::#fields => stringify!(#fields)),*
+                    #(SortableFields::#field_names => stringify!(#field_names)),*
                 })
             }
         }
@@ -411,11 +422,11 @@ fn derive_crud_list(
                 let mut query = #schema_path::#table_name::table.offset(offset).limit(limit).into_boxed();
                 for sort_spec in sort {
                     match sort_spec.field {
-                        #(SortableFields::#fields => {
+                        #(SortableFields::#field_names => {
                             query = if sort_spec.direction == SortDirection::Asc {
-                                query.then_order_by(#schema_path::#table_name::columns::#fields.asc())
+                                query.then_order_by(#schema_path::#table_name::columns::#field_names.asc())
                             } else {
-                                query.then_order_by(#schema_path::#table_name::columns::#fields.desc())
+                                query.then_order_by(#schema_path::#table_name::columns::#field_names.desc())
                             };
                         }),*
                     }

@@ -12,6 +12,13 @@ table! {
 }
 
 table! {
+    foo (id) {
+        id -> Int4,
+        name -> Text,
+    }
+}
+
+table! {
     posts (id) {
         id -> Int4,
         title -> Varchar,
@@ -36,4 +43,9 @@ joinable!(comments -> posts (post_id));
 joinable!(comments -> users (user_id));
 joinable!(posts -> users (user_id));
 
-allow_tables_to_appear_in_same_query!(comments, posts, users,);
+allow_tables_to_appear_in_same_query!(
+    comments,
+    foo,
+    posts,
+    users,
+);
