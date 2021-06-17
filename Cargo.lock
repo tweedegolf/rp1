@@ -1031,10 +1031,12 @@ dependencies = [
 name = "rocket-crud"
 version = "0.1.0"
 dependencies = [
+ "diesel",
  "either",
  "rocket",
  "rocket-crud-macros",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

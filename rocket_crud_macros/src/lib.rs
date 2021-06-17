@@ -262,25 +262,17 @@ fn derive_crud_read(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Id
         {
             use ::rocket::http::Status;
             use ::diesel::result::Error;
-            use ::rocket_crud::Either;
+            use ::rocket_crud::{Either, db_error_to_response};
             use ::rocket::serde::json::{Json, json};
 
 
-            let result = db.run(move |conn| {
+            db.run(move |conn| {
                 #schema_path::#table_name::table
                     .find(id)
                     .first(conn)
             })
-            .await;
-            match result {
-                Ok(res) => (Status::Ok, Either::Left(Json(res))),
-                Err(Error::NotFound) => (Status::NotFound, Either::Right(json!({
-                    "error": 404,
-                }))),
-                Err(e) => (Status::InternalServerError, Either::Right(json!({
-                    "error": 500,
-                }))),
-            }
+            .await
+            .map_or_else(db_error_to_response, |res| (Status::Ok, Either::Left(Json(res))))
         }
     };
 

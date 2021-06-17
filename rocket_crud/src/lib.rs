@@ -86,3 +86,24 @@ where
 {
     Deserialize::deserialize(de).map(Some)
 }
+
+use diesel::result::Error;
+use rocket::http::Status;
+use rocket::serde::json::{json, Value};
+
+pub fn db_error_to_response<T>(error: Error) -> (Status, Either<T, Value>) {
+    match error {
+        Error::NotFound => (
+            Status::NotFound,
+            Either::Right(json!({
+                "error": 404,
+            })),
+        ),
+        _ => (
+            Status::InternalServerError,
+            Either::Right(json!({
+                "error": 500,
+            })),
+        ),
+    }
+}
