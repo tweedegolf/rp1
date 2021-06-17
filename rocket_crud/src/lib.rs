@@ -6,7 +6,15 @@ pub trait CrudUpdatableMarker {}
 
 pub use either::Either;
 
+use rocket::http::ContentType;
+use rocket::request::{self, FromRequest, Outcome, Request};
 use serde::de::{Deserialize, Deserializer};
+use std::convert::Infallible;
+
+pub type RocketCrudResponse<T> = (
+    ::rocket::http::Status,
+    Either<::rocket::serde::json::Json<T>, ::rocket::serde::json::Value>,
+);
 
 #[derive(serde::Deserialize, serde::Serialize, rocket::FromFormField, Debug, PartialEq, Eq)]
 pub enum SortDirection {
@@ -89,9 +97,9 @@ where
 
 use diesel::result::Error;
 use rocket::http::Status;
-use rocket::serde::json::{json, Value};
+use rocket::serde::json::{json, Json};
 
-pub fn db_error_to_response<T>(error: Error) -> (Status, Either<T, Value>) {
+pub fn db_error_to_response<T>(error: Error) -> RocketCrudResponse<T> {
     match error {
         Error::NotFound => (
             Status::NotFound,
@@ -105,5 +113,27 @@ pub fn db_error_to_response<T>(error: Error) -> (Status, Either<T, Value>) {
                 "error": 500,
             })),
         ),
+    }
+}
+
+pub fn ok_to_response<T>(value: T) -> RocketCrudResponse<T> {
+    (Status::Ok, Either::Left(Json(value)))
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum RequestContentType {
+    Json,
+    Other,
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for RequestContentType {
+    type Error = Infallible;
+
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        match request.content_type() {
+            Some(ct) if ct == &ContentType::JSON => Outcome::Success(RequestContentType::Json),
+            _ => Outcome::Success(RequestContentType::Other),
+        }
     }
 }

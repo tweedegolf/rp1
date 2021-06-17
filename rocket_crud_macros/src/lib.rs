@@ -226,19 +226,19 @@ fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
         async fn create_fn(
             db: #database_struct,
             value: ::rocket::serde::json::Json<#new_ident>
-        ) -> ::rocket::serde::json::Json<#ident>
+        ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
+            use ::rocket_crud::{ok_to_response, db_error_to_response};
+
             let value = value.into_inner();
 
-            let result = db.run(move |conn| {
+            db.run(move |conn| {
                 diesel::insert_into(#schema_path::#table_name::table)
                     .values(&value)
                     .get_result(conn)
             })
             .await
-            .unwrap();
-
-            ::rocket::serde::json::Json(result)
+            .map_or_else(db_error_to_response, ok_to_response)
         }
     };
     (tokens, vec![format_ident!("create_fn")])
@@ -258,13 +258,9 @@ fn derive_crud_read(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Id
         async fn read_fn(
             db: #database_struct,
             id: i32
-        ) -> (::rocket::http::Status, ::rocket_crud::Either<::rocket::serde::json::Json<#ident>, ::rocket::serde::json::Value>)
+        ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
-            use ::rocket::http::Status;
-            use ::diesel::result::Error;
-            use ::rocket_crud::{Either, db_error_to_response};
-            use ::rocket::serde::json::{Json, json};
-
+            use ::rocket_crud::{ok_to_response, db_error_to_response};
 
             db.run(move |conn| {
                 #schema_path::#table_name::table
@@ -272,7 +268,7 @@ fn derive_crud_read(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Id
                     .first(conn)
             })
             .await
-            .map_or_else(db_error_to_response, |res| (Status::Ok, Either::Left(Json(res))))
+            .map_or_else(db_error_to_response, ok_to_response)
         }
     };
 
@@ -342,19 +338,19 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
             db: #database_struct,
             id: i32,
             value: ::rocket::serde::json::Json<#update_ident>
-        ) -> ::rocket::serde::json::Json<#ident>
+        ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
+            use ::rocket_crud::{ok_to_response, db_error_to_response};
+
             let value = value.into_inner();
 
-            let result = db.run(move |conn| {
+            db.run(move |conn| {
                 diesel::update(#schema_path::#table_name::table.find(id))
                     .set(&value)
                     .get_result(conn)
             })
             .await
-            .unwrap();
-
-            ::rocket::serde::json::Json(result)
+            .map_or_else(db_error_to_response, ok_to_response)
         }
     };
     (tokens, vec![format_ident!("update_fn")])
@@ -370,15 +366,18 @@ fn derive_crud_delete(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
 
     let tokens = quote! {
         #[::rocket::delete("/<id>")]
-        async fn delete_fn(db: #database_struct, id: i32) -> ::rocket::serde::json::Json<usize> {
+        async fn delete_fn(
+            db: #database_struct,
+            id: i32
+        ) -> ::rocket_crud::RocketCrudResponse<usize>
+        {
+            use ::rocket_crud::{ok_to_response, db_error_to_response};
 
-            let result = db.run(move |conn| {
+            db.run(move |conn| {
                 diesel::delete(#schema_path::#table_name::table.find(id)).execute(conn)
             })
             .await
-            .unwrap();
-
-            ::rocket::serde::json::Json(result)
+            .map_or_else(db_error_to_response, ok_to_response)
         }
     };
 
@@ -420,10 +419,13 @@ fn derive_crud_list(
             sort: Vec<::rocket_crud::SortSpec<SortableFields>>,
             offset: Option<i64>,
             limit: Option<i64>,
-        ) -> ::rocket::serde::json::Json<Vec<#ident>> {
+        ) -> ::rocket_crud::RocketCrudResponse<Vec<#ident>>
+        {
+            use ::rocket_crud::{ok_to_response, db_error_to_response};
+
             let offset = i64::max(0, offset.unwrap_or(0));
             let limit = i64::max(1, i64::min(#max_limit, limit.unwrap_or(#max_limit)));
-            let result = db.run(move |conn| {
+            db.run(move |conn| {
                 use ::rocket_crud::SortDirection;
                 use ::diesel::expression::Expression;
                 let mut query = #schema_path::#table_name::table.offset(offset).limit(limit).into_boxed();
@@ -441,9 +443,7 @@ fn derive_crud_list(
                 query.load(conn)
             })
             .await
-            .unwrap();
-
-            ::rocket::serde::json::Json(result)
+            .map_or_else(db_error_to_response, ok_to_response)
         }
     };
 
