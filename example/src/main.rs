@@ -46,6 +46,7 @@ struct Comment {
     #[serde(default)]
     approved: bool,
     post_id: i32,
+    #[not_sortable]
     user_id: Option<i32>,
     anonymous_user: Option<String>,
     #[generated]

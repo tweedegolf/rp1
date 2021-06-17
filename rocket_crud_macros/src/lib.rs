@@ -104,9 +104,11 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     });
 
     // names of _all_ fields: both generated and user-supplied
-    let field_names: Vec<_> = input
+    // but we exclude anything marked `not_sortable`
+    let sortable_fields: Vec<_> = input
         .fields
         .iter()
+        .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("not_sortable")))
         .map(|f| f.ident.clone().expect("Struct must have named fields"))
         .collect();
 
@@ -116,11 +118,20 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
         .iter()
         .filter(|f| !f.attrs.iter().any(is_generated_or_primary_key))
         .cloned()
+        .map(|mut f| {
+            f.attrs.retain(|a| !a.path.is_ident("not_sortable"));
+            f
+        })
         .collect();
 
     // now drop all attributes that we have added
+
     for f in input.fields.iter_mut() {
-        f.attrs.retain(|a| !is_generated_or_primary_key(a));
+        f.attrs.retain(|a| {
+            !(a.path.is_ident("generated")
+                || a.path.is_ident("primary_key")
+                || a.path.is_ident("not_sortable"))
+        });
     }
 
     let mut tokens = vec![];
@@ -154,7 +165,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if props.list {
-        let (toks, mut func) = derive_crud_list(&field_names, &props);
+        let (toks, mut func) = derive_crud_list(&sortable_fields, &props);
         tokens.push(toks);
         funcs.append(&mut func);
     }
