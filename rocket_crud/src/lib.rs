@@ -37,15 +37,15 @@ impl<'v, T: rocket::form::FromFormField<'v>> SortSpec<T> {
         name: &rocket::form::name::NameView<'v>,
     ) -> rocket::form::Result<'v, SortSpec<T>> {
         let mut direction = SortDirection::Asc;
-        if data.chars().nth(0) == Some('-') {
+        if data.starts_with('-') {
             data = &data[1..];
             direction = SortDirection::Desc;
-        } else if data.chars().nth(0) == Some('+') {
+        } else if data.starts_with('+') {
             data = &data[1..];
         }
 
         let field = rocket::form::FromFormField::from_value(rocket::form::ValueField {
-            name: name.clone(),
+            name: *name,
             value: data,
         })?;
 
@@ -65,7 +65,7 @@ impl<'v, T: rocket::form::FromFormField<'v>> rocket::form::FromFormField<'v> for
         let limit = 256.kibibytes();
         let bytes = field.data.open(limit).into_bytes().await?;
         if !bytes.is_complete() {
-            Err((None, Some(limit)))?;
+            return Err((None, Some(limit)).into());
         }
         let bytes = bytes.into_inner();
         let bytes = rocket::request::local_cache!(field.request, bytes);
