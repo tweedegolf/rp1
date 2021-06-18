@@ -15,6 +15,7 @@ pub type RocketCrudResponse<T> = (
     ::rocket::http::Status,
     Either<::rocket::serde::json::Json<T>, ::rocket::serde::json::Value>,
 );
+use std::str::FromStr;
 
 #[derive(serde::Deserialize, serde::Serialize, rocket::FromFormField, Debug, PartialEq, Eq)]
 pub enum SortDirection {
@@ -95,13 +96,13 @@ where
     Deserialize::deserialize(de).map(Some)
 }
 
-use diesel::result::Error;
+use diesel::result::Error as DieselError;
 use rocket::http::Status;
 use rocket::serde::json::{json, Json};
 
-pub fn db_error_to_response<T>(error: Error) -> RocketCrudResponse<T> {
+pub fn db_error_to_response<T>(error: DieselError) -> RocketCrudResponse<T> {
     match error {
-        Error::NotFound => (
+        DieselError::NotFound => (
             Status::NotFound,
             Either::Right(json!({
                 "error": 404,
@@ -135,5 +136,149 @@ impl<'r> FromRequest<'r> for RequestContentType {
             Some(ct) if ct == &ContentType::JSON => Outcome::Success(RequestContentType::Json),
             _ => Outcome::Success(RequestContentType::Other),
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum FilterOperator<T> {
+    Eq(T),
+    Ne(T),
+    Gt(T),
+    Ge(T),
+    Lt(T),
+    Le(T),
+    EqAny(Vec<T>),
+}
+
+fn parse_single_operand<T: FromStr>(input: &str) -> Result<T, ParseError>
+where
+    <T as FromStr>::Err: Into<ParseError>,
+{
+    input.parse().map_err(|e: <T as FromStr>::Err| e.into())
+}
+
+fn parse_vec_operand<T: FromStr>(input: &str) -> Result<Vec<T>, ParseError>
+where
+    <T as FromStr>::Err: Into<ParseError>,
+{
+    input
+        .split(",")
+        .map(|segment| segment.parse())
+        .collect::<Result<Vec<T>, <T as FromStr>::Err>>()
+        .map_err(|e: <T as FromStr>::Err| e.into())
+}
+
+impl<T: FromStr> FilterOperator<Option<T>>
+where
+    <T as FromStr>::Err: Into<ParseError>,
+{
+    pub fn from_none(op: &str) -> Result<Self, ParseError> {
+        match op {
+            "eq" => Ok(FilterOperator::Eq(None)),
+            "ne" => Ok(FilterOperator::Ne(None)),
+            "gt" => Ok(FilterOperator::Gt(None)),
+            "ge" => Ok(FilterOperator::Ge(None)),
+            "lt" => Ok(FilterOperator::Lt(None)),
+            "le" => Ok(FilterOperator::Le(None)),
+            "in" => Ok(FilterOperator::EqAny(vec![])),
+            _ => Err(ParseError::UnknownOperator(op.to_owned())),
+        }
+    }
+
+    pub fn try_parse_option(op: &str, value: &str) -> Result<Self, ParseError> {
+        let value: FilterOperator<T> = FilterOperator::try_parse(op, value)?;
+        Ok(match value {
+            FilterOperator::Eq(v) => FilterOperator::Eq(Some(v)),
+            FilterOperator::Ne(v) => FilterOperator::Ne(Some(v)),
+            FilterOperator::Gt(v) => FilterOperator::Ne(Some(v)),
+            FilterOperator::Ge(v) => FilterOperator::Ne(Some(v)),
+            FilterOperator::Lt(v) => FilterOperator::Ne(Some(v)),
+            FilterOperator::Le(v) => FilterOperator::Ne(Some(v)),
+            FilterOperator::EqAny(v) => {
+                FilterOperator::EqAny(v.into_iter().map(|v| Some(v)).collect())
+            }
+        })
+    }
+}
+
+impl<T: FromStr> FilterOperator<T>
+where
+    <T as FromStr>::Err: Into<ParseError>,
+{
+    pub fn try_parse(op: &str, value: &str) -> Result<Self, ParseError> {
+        match op {
+            "eq" => Ok(FilterOperator::Eq(parse_single_operand(value)?)),
+            "ne" => Ok(FilterOperator::Ne(parse_single_operand(value)?)),
+            "gt" => Ok(FilterOperator::Gt(parse_single_operand(value)?)),
+            "ge" => Ok(FilterOperator::Ge(parse_single_operand(value)?)),
+            "lt" => Ok(FilterOperator::Lt(parse_single_operand(value)?)),
+            "le" => Ok(FilterOperator::Le(parse_single_operand(value)?)),
+            "in" => Ok(FilterOperator::EqAny(parse_vec_operand(value)?)),
+            _ => Err(ParseError::UnknownOperator(op.to_owned())),
+        }
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("Unknown field for filter")]
+    FilterUnknownField { field: String },
+
+    #[error("Unknown operation on field")]
+    FilterUnknownOperation { op: String },
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ParseError {
+    #[error("Could not parse integer")]
+    IntError(::std::num::ParseIntError),
+
+    #[error("Could not parse boolean")]
+    BoolError(::std::str::ParseBoolError),
+
+    #[error("Could not parse timestamp")]
+    ChronoError(::chrono::ParseError),
+
+    #[error("An infallible conversion somehow failed")]
+    Infallible,
+
+    #[error("Unknown operator")]
+    UnknownOperator(String),
+}
+
+impl From<::std::num::ParseIntError> for ParseError {
+    fn from(e: ::std::num::ParseIntError) -> Self {
+        ParseError::IntError(e)
+    }
+}
+
+impl From<::std::str::ParseBoolError> for ParseError {
+    fn from(e: ::std::str::ParseBoolError) -> Self {
+        ParseError::BoolError(e)
+    }
+}
+
+impl From<::chrono::ParseError> for ParseError {
+    fn from(e: ::chrono::ParseError) -> Self {
+        ParseError::ChronoError(e)
+    }
+}
+
+impl From<::std::convert::Infallible> for ParseError {
+    fn from(_: ::std::convert::Infallible) -> Self {
+        ParseError::Infallible
+    }
+}
+
+impl<'v> From<ParseError> for ::rocket::form::error::ErrorKind<'v> {
+    fn from(_: ParseError) -> Self {
+        ::rocket::form::error::ErrorKind::Unknown
+    }
+}
+
+impl<'v> From<Error> for ::rocket::form::error::ErrorKind<'v> {
+    fn from(_: Error) -> Self {
+        // TODO: a better implementation of this
+        ::rocket::form::error::ErrorKind::Unknown
     }
 }

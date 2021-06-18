@@ -1,16 +1,23 @@
 ###
 
-GET http://localhost:8000/users?sort=username&sort=created_at HTTP/1.1
+GET http://localhost:8000/users?sort=username&sort=created_at&filter[username]in=arjen,folkert,marlon HTTP/1.1
+Accept: application/json
+
+###
+
+GET http://localhost:8000/users?sort=username&sort=created_at&filter[username]=arjen HTTP/1.1
+Accept: application/json
 
 ###
 
 GET http://localhost:8000/users?sort=username&sort=created_at&offset=1&limit=1 HTTP/1.1
-
+Accept: application/json
 
 ###
 
 POST http://localhost:8000/users HTTP/1.1
 Content-Type: application/json
+Accept: application/json
 
 {
   "username": "ruben"
@@ -23,6 +30,46 @@ Content-Type: application/json
 
 {
   "username": "arjen"
+}
+
+
+###
+
+POST http://localhost:8000/posts HTTP/1.1
+Content-Type: application/json
+
+{
+  "title": "First post",
+  "subtitle": null,
+  "content": "This is the first post!",
+  "user_id": 2
+}
+
+###
+
+PATCH http://localhost:8000/posts/3 HTTP/1.1
+Content-Type: application/json
+
+{
+  "title": "First post!"
+}
+
+###
+
+PATCH http://localhost:8000/posts/3 HTTP/1.1
+Content-Type: application/json
+
+{
+  "subtitle": "First post!!!!!!"
+}
+
+###
+
+PATCH http://localhost:8000/posts/3 HTTP/1.1
+Content-Type: application/json
+
+{
+  "subtitle": null
 }
 
 ###
