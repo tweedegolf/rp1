@@ -14,3 +14,14 @@ rocket = "0.5.0-rc.1"
 diesel = { version = "1.4.6" }
 thiserror = "1.0.25"
 chrono = "0.4.19"
+
+[dev-dependencies]
+rocket-crud = { path = "../rocket_crud/" }
+rocket = { version = "0.5.0-rc.1", features = ["json"] }
+diesel = { version = "1.4.6", features = ["postgres", "r2d2", "chrono"] }
+diesel_migrations = "1.4.0"
+dotenv = "0.15.0"
+serde = "1.0.126"
+serde_json = "1.0.64"
+chrono = { version = "0.4.19", features = ["serde"] }
+rocket_sync_db_pools = { version = "0.1.0-rc.1", features = ["diesel_postgres_pool"] }

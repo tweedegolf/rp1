@@ -1033,9 +1033,13 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "diesel",
+ "diesel_migrations",
+ "dotenv",
  "either",
  "rocket",
+ "rocket-crud",
  "rocket-crud-macros",
+ "rocket_sync_db_pools",
  "serde",
  "serde_json",
  "thiserror",
