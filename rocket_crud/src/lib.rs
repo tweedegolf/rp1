@@ -1,3 +1,9 @@
+use casbin::prelude::Enforcer;
+use casbin::CoreApi;
+use casbin::{Result as CasbinResult, TryIntoAdapter, TryIntoModel};
+
+use async_mutex::Mutex;
+
 pub use rocket_crud_macros::crud;
 
 pub trait CrudInsertableMarker {}
@@ -6,6 +12,8 @@ pub trait CrudUpdatableMarker {}
 
 pub use either::Either;
 
+use rocket::data::Data;
+use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::ContentType;
 use rocket::request::{self, FromRequest, Outcome, Request};
 use serde::de::{Deserialize, Deserializer};
@@ -283,29 +291,28 @@ impl<'v> From<Error> for ::rocket::form::error::ErrorKind<'v> {
     }
 }
 
-use casbin::{CoreApi, Result as CasbinResult};
-
 pub enum EnforcedBy {
     Subject(String),
     SubjectAndDomain { subject: String, domain: String },
-    Nothing,
+    ForbidAll,
 }
 
 impl Default for EnforcedBy {
     fn default() -> Self {
-        EnforcedBy::Nothing
+        EnforcedBy::ForbidAll
     }
 }
 
 #[derive(Clone)]
 pub struct PermissionsGuard(Option<Status>);
 
-impl<'a, 'r> FromRequest<'a, 'r> for PermissionsGuard {
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for PermissionsGuard {
     type Error = ();
 
-    fn from_request(request: &'a Request<'r>) -> request::Outcome<PermissionsGuard, ()> {
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
         match *request.local_cache(|| PermissionsGuard(Status::from_code(0))) {
-            PermissionsGuard(Some(Status::Ok)) => {
+            PermissionsGuard(Some(status)) if status == Status::Ok => {
                 request::Outcome::Success(PermissionsGuard(Some(Status::Ok)))
             }
             PermissionsGuard(Some(err_status)) => request::Outcome::Failure((err_status, ())),
@@ -314,35 +321,38 @@ impl<'a, 'r> FromRequest<'a, 'r> for PermissionsGuard {
     }
 }
 
+type PermissionsEnforcer = std::sync::Arc<Mutex<Enforcer>>;
+
 #[derive(Clone)]
 pub struct PermissionsFairing {
-    pub enforcer: std::sync::Arc<parking_lot::RwLock<casbin::CachedEnforcer>>,
+    pub enforcer: PermissionsEnforcer,
 }
 
 impl PermissionsFairing {
     pub async fn new<M: TryIntoModel, A: TryIntoAdapter>(m: M, a: A) -> CasbinResult<Self> {
-        let enforcer: casbin::CachedEnforcer = casbin::CachedEnforcer::new(m, a).await?;
+        let enforcer: Enforcer = Enforcer::new(m, a).await?;
         Ok(PermissionsFairing {
-            enforcer: std::sync::Arc::new(parking_lot::RwLock::new(enforcer)),
+            enforcer: std::sync::Arc::new(Mutex::new(enforcer)),
         })
     }
 
-    pub fn enforcer(&mut self) -> std::sync::Arc<parking_lot::RwLock<casbin::CachedEnforcer>> {
+    pub fn enforcer(&mut self) -> PermissionsEnforcer {
         self.enforcer.clone()
     }
 
-    pub fn with_enforcer(e: std::sync::Arc<parking_lot::RwLock<casbin::CachedEnforcer>>) -> PermissionsFairing {
+    pub fn with_enforcer(e: PermissionsEnforcer) -> PermissionsFairing {
         PermissionsFairing { enforcer: e }
     }
 }
 
-fn casbinEnforce(
-    enforcer: std::sync::Arc<parking_lot::RwLock<casbin::CachedEnforcer>>,
-    enforce_arcs: impl casbin::EnforceArcs,
+async fn casbin_enforce(
+    enforcer: PermissionsEnforcer,
+    enforce_arcs: impl casbin::EnforceArgs,
 ) -> PermissionsGuard {
-    let lock = enforcer.write();
-    let guard = lock.enforce_mut(enforce_arcs);
-    drop(lock);
+    let mut mutex_guard = enforcer.lock().await;
+    let guard = mutex_guard.enforce_mut(enforce_arcs);
+    drop(mutex_guard);
+
     PermissionsGuard(Some(match guard {
         Ok(true) => Status::Ok,
         Ok(false) => Status::Forbidden,
@@ -350,6 +360,7 @@ fn casbinEnforce(
     }))
 }
 
+#[rocket::async_trait]
 impl Fairing for PermissionsFairing {
     fn info(&self) -> Info {
         Info {
@@ -358,21 +369,29 @@ impl Fairing for PermissionsFairing {
         }
     }
 
-    fn on_request(&self, request: &mut Request, _data: &Data) {
-        let path = request.uri().path().to_owned();
+    async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
+        let path = request.uri().path().to_string();
         let action = request.method().as_str().to_owned();
 
-        let enforced_by = request.local_cache(|| EnforcedBy::default());
+        let enforced_by = request.local_cache(EnforcedBy::default);
         match enforced_by {
             EnforcedBy::Subject(subject) => {
-                let status = casbinEnforce(self.enforcer, vec![subject, path, action]);
+                let status = casbin_enforce(
+                    self.enforcer.clone(),
+                    vec![subject.to_owned(), path, action],
+                )
+                .await;
                 request.local_cache(|| status);
             }
             EnforcedBy::SubjectAndDomain { subject, domain } => {
-                let status = casbinEnforce(self.enforcer, vec![subject, domain, path, action]);
+                let status = casbin_enforce(
+                    self.enforcer.clone(),
+                    vec![subject.to_owned(), domain.to_owned(), path, action],
+                )
+                .await;
                 request.local_cache(|| status);
             }
-            EnforcedBy::Nothing => {
+            EnforcedBy::ForbidAll => {
                 request.local_cache(|| PermissionsGuard(Some(Status::BadGateway)));
             }
         }

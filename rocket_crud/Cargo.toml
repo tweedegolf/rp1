@@ -1,28 +1,46 @@
 [package]
+authors = ["The Roc Contributors"]
+edition = "2018"
+license = "UPL-1.0"
 name = "rocket-crud"
 version = "0.1.0"
-authors = ["The Roc Contributors"]
-license = "UPL-1.0"
-edition = "2018"
-
 [dependencies]
-rocket-crud-macros = { path = "../rocket_crud_macros/" }
+async-mutex = "1.4.0"
+casbin = "2.0.7"
+chrono = "0.4.19"
 either = "1.6.1"
+rocket = "0.5.0-rc.1"
 serde = "1.0.126"
 serde_json = "1.0.64"
-rocket = "0.5.0-rc.1"
-diesel = { version = "1.4.6" }
 thiserror = "1.0.25"
-chrono = "0.4.19"
-casbin = "2.0.7"
+
+[dependencies.diesel]
+version = "1.4.6"
+
+[dependencies.rocket-crud-macros]
+path = "../rocket_crud_macros/"
 
 [dev-dependencies]
-rocket-crud = { path = "../rocket_crud/" }
-rocket = { version = "0.5.0-rc.1", features = ["json"] }
-diesel = { version = "1.4.6", features = ["postgres", "r2d2", "chrono"] }
 diesel_migrations = "1.4.0"
 dotenv = "0.15.0"
 serde = "1.0.126"
 serde_json = "1.0.64"
-chrono = { version = "0.4.19", features = ["serde"] }
-rocket_sync_db_pools = { version = "0.1.0-rc.1", features = ["diesel_postgres_pool"] }
+
+[dev-dependencies.chrono]
+features = ["serde"]
+version = "0.4.19"
+
+[dev-dependencies.diesel]
+features = ["postgres", "r2d2", "chrono"]
+version = "1.4.6"
+
+[dev-dependencies.rocket]
+features = ["json"]
+version = "0.5.0-rc.1"
+
+[dev-dependencies.rocket-crud]
+path = "../rocket_crud/"
+
+[dev-dependencies.rocket_sync_db_pools]
+features = ["diesel_postgres_pool"]
+version = "0.1.0-rc.1"

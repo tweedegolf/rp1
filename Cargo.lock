@@ -1332,6 +1332,7 @@ dependencies = [
 name = "rocket-crud"
 version = "0.1.0"
 dependencies = [
+ "async-mutex",
  "casbin",
  "chrono",
  "diesel",
