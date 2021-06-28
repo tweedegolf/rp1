@@ -6,8 +6,10 @@ extern crate diesel;
 
 extern crate rocket;
 
-#[macro_use]
-use rocket_crud;
+use rocket::http::ContentType;
+
+// #[macro_use]
+// use rocket_crud;
 
 mod schema {
 
@@ -106,4 +108,88 @@ fn test1() {
         }
         */
     );
+}
+
+#[test]
+fn create_user_json() {
+    let client = Client::tracked(rocket()).expect("valid rocket instance");
+    let response = client
+        .post("/users/")
+        .body(r#"{ "username" : "foobar" }"#)
+        .header(ContentType::JSON)
+        .dispatch();
+
+    assert_eq!(response.status(), Status::Ok);
+
+    let new_user = response.into_json::<User>().unwrap();
+
+    assert_eq!(new_user.username, "foobar");
+}
+
+#[test]
+fn create_user_form() {
+    let client = Client::tracked(rocket()).expect("valid rocket instance");
+    let response = client
+        .post("/users/form")
+        .body("username=foobar")
+        .header(ContentType::Form)
+        .dispatch();
+
+    assert_eq!(response.status(), Status::Ok);
+
+    let new_user = response.into_json::<User>().unwrap();
+
+    assert_eq!(new_user.username, "foobar");
+}
+
+#[test]
+fn update_user_json() {
+    let client = Client::tracked(rocket()).expect("valid rocket instance");
+    let response = client
+        .post("/users/")
+        .body(r#"{ "username" : "foobar" }"#)
+        .header(ContentType::JSON)
+        .dispatch();
+
+    assert_eq!(response.status(), Status::Ok);
+
+    let new_user = response.into_json::<User>().unwrap();
+
+    assert_eq!(new_user.username, "foobar");
+
+    let response = client
+        .patch(format!("/users/{}", new_user.id))
+        .body(r#"{ "username" : "baz" }"#)
+        .header(ContentType::JSON)
+        .dispatch();
+
+    let newer_user = response.into_json::<User>().unwrap();
+
+    assert_eq!(newer_user.username, "baz");
+}
+
+#[test]
+fn update_user_form() {
+    let client = Client::tracked(rocket()).expect("valid rocket instance");
+    let response = client
+        .post("/users/")
+        .body(r#"{ "username" : "foobar" }"#)
+        .header(ContentType::JSON)
+        .dispatch();
+
+    assert_eq!(response.status(), Status::Ok);
+
+    let new_user = response.into_json::<User>().unwrap();
+
+    assert_eq!(new_user.username, "foobar");
+
+    let response = client
+        .patch(format!("/users/form/{}", new_user.id))
+        .body("username=baz")
+        .header(ContentType::Form)
+        .dispatch();
+
+    let newer_user = response.into_json::<User>().unwrap();
+
+    assert_eq!(newer_user.username, "baz");
 }
