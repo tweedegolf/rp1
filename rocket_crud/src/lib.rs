@@ -282,3 +282,99 @@ impl<'v> From<Error> for ::rocket::form::error::ErrorKind<'v> {
         ::rocket::form::error::ErrorKind::Unknown
     }
 }
+
+use casbin::{CachedEnforcer, CoreApi, Result as CasbinResult};
+
+pub enum EnforcedBy {
+    Subject(String),
+    SubjectAndDomain { subject: String, domain: String },
+    Nothing,
+}
+
+impl Default for EnforcedBy {
+    fn default() -> Self {
+        EnforcedBy::Nothing
+    }
+}
+
+#[derive(Clone)]
+pub struct PermissionsGuard(Option<Status>);
+
+impl<'a, 'r> FromRequest<'a, 'r> for PermissionsGuard {
+    type Error = ();
+
+    fn from_request(request: &'a Request<'r>) -> request::Outcome<PermissionsGuard, ()> {
+        match *request.local_cache(|| PermissionsGuard(Status::from_code(0))) {
+            PermissionsGuard(Some(Status::Ok)) => {
+                request::Outcome::Success(PermissionsGuard(Some(Status::Ok)))
+            }
+            PermissionsGuard(Some(err_status)) => request::Outcome::Failure((err_status, ())),
+            _ => request::Outcome::Failure((Status::BadGateway, ())),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct PermissionsFairing {
+    pub enforcer: Arc<RwLock<CachedEnforcer>>,
+}
+
+impl PermissionsFairing {
+    pub async fn new<M: TryIntoModel, A: TryIntoAdapter>(m: M, a: A) -> CasbinResult<Self> {
+        let enforcer: CachedEnforcer = CachedEnforcer::new(m, a).await?;
+        Ok(PermissionsFairing {
+            enforcer: Arc::new(RwLock::new(enforcer)),
+        })
+    }
+
+    pub fn enforcer(&mut self) -> Arc<RwLock<CachedEnforcer>> {
+        self.enforcer.clone()
+    }
+
+    pub fn with_enforcer(e: Arc<RwLock<CachedEnforcer>>) -> PermissionsFairing {
+        PermissionsFairing { enforcer: e }
+    }
+}
+
+fn casbinEnforce(
+    enforcer: Arc<RwLock<CachedEnforcer>>,
+    enforce_arcs: impl casbin::EnforceArcs,
+) -> PermissionsGuard {
+    let lock = enforcer.write();
+    let guard = lock.enforce_mut(enforce_arcs);
+    drop(lock);
+    PermissionsGuard(Some(match guard {
+        Ok(true) => Status::Ok,
+        Ok(false) => Status::Forbidden,
+        Err(_) => Status::BadGateway,
+    }))
+}
+
+impl Fairing for PermissionsFairing {
+    fn info(&self) -> Info {
+        Info {
+            name: "PermissionsFairing",
+            kind: Kind::Request | Kind::Response,
+        }
+    }
+
+    fn on_request(&self, request: &mut Request, _data: &Data) {
+        let path = request.uri().path().to_owned();
+        let action = request.method().as_str().to_owned();
+
+        let enforced_by = request.local_cache(|| EnforcedBy::default());
+        match enforced_by {
+            EnforcedBy::Subject(subject) => {
+                let status = casbinEnforce(self.enforcer, vec![subject, domain, path, action]);
+                request.local_cache(|| status);
+            }
+            EnforcedBy::SubjectAndDomain { subject, domain } => {
+                let status = casbinEnforce(self.enforcer, vec![subject, path, action]);
+                request.local_cache(|| status);
+            }
+            EnforcedBy::Nothing => {
+                request.local_cache(|| CasbinGuard(Some(Status::BadGateway)));
+            }
+        }
+    }
+}
