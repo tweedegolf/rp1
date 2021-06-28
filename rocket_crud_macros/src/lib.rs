@@ -36,6 +36,8 @@ struct CrudPropsBuilder {
     table_name: Option<syn::Ident>,
     #[darling(default)]
     max_limit: Option<i64>,
+    #[darling(default)]
+    enable_casbin_rbac: bool,
 }
 
 #[derive(Debug)]
@@ -53,6 +55,7 @@ struct CrudProps {
     update_ident: syn::Ident,
     table_name: syn::Ident,
     max_limit: i64,
+    enable_casbin_rbac: bool,
 }
 
 /// These fields are often treated differently from the fields that contain
@@ -94,6 +97,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
                 .table_name
                 .unwrap_or_else(|| format_ident!("{}", to_snake_case(&input.ident.to_string()))),
             max_limit: v.max_limit.unwrap_or(100),
+            enable_casbin_rbac: v.enable_casbin_rbac,
         },
         Err(e) => return e.write_errors().into(),
     };

@@ -283,7 +283,7 @@ impl<'v> From<Error> for ::rocket::form::error::ErrorKind<'v> {
     }
 }
 
-use casbin::{CachedEnforcer, CoreApi, Result as CasbinResult};
+use casbin::{CoreApi, Result as CasbinResult};
 
 pub enum EnforcedBy {
     Subject(String),
@@ -316,28 +316,28 @@ impl<'a, 'r> FromRequest<'a, 'r> for PermissionsGuard {
 
 #[derive(Clone)]
 pub struct PermissionsFairing {
-    pub enforcer: Arc<RwLock<CachedEnforcer>>,
+    pub enforcer: std::sync::Arc<parking_lot::RwLock<casbin::CachedEnforcer>>,
 }
 
 impl PermissionsFairing {
     pub async fn new<M: TryIntoModel, A: TryIntoAdapter>(m: M, a: A) -> CasbinResult<Self> {
-        let enforcer: CachedEnforcer = CachedEnforcer::new(m, a).await?;
+        let enforcer: casbin::CachedEnforcer = casbin::CachedEnforcer::new(m, a).await?;
         Ok(PermissionsFairing {
-            enforcer: Arc::new(RwLock::new(enforcer)),
+            enforcer: std::sync::Arc::new(parking_lot::RwLock::new(enforcer)),
         })
     }
 
-    pub fn enforcer(&mut self) -> Arc<RwLock<CachedEnforcer>> {
+    pub fn enforcer(&mut self) -> std::sync::Arc<parking_lot::RwLock<casbin::CachedEnforcer>> {
         self.enforcer.clone()
     }
 
-    pub fn with_enforcer(e: Arc<RwLock<CachedEnforcer>>) -> PermissionsFairing {
+    pub fn with_enforcer(e: std::sync::Arc<parking_lot::RwLock<casbin::CachedEnforcer>>) -> PermissionsFairing {
         PermissionsFairing { enforcer: e }
     }
 }
 
 fn casbinEnforce(
-    enforcer: Arc<RwLock<CachedEnforcer>>,
+    enforcer: std::sync::Arc<parking_lot::RwLock<casbin::CachedEnforcer>>,
     enforce_arcs: impl casbin::EnforceArcs,
 ) -> PermissionsGuard {
     let lock = enforcer.write();
@@ -365,15 +365,15 @@ impl Fairing for PermissionsFairing {
         let enforced_by = request.local_cache(|| EnforcedBy::default());
         match enforced_by {
             EnforcedBy::Subject(subject) => {
-                let status = casbinEnforce(self.enforcer, vec![subject, domain, path, action]);
-                request.local_cache(|| status);
-            }
-            EnforcedBy::SubjectAndDomain { subject, domain } => {
                 let status = casbinEnforce(self.enforcer, vec![subject, path, action]);
                 request.local_cache(|| status);
             }
+            EnforcedBy::SubjectAndDomain { subject, domain } => {
+                let status = casbinEnforce(self.enforcer, vec![subject, domain, path, action]);
+                request.local_cache(|| status);
+            }
             EnforcedBy::Nothing => {
-                request.local_cache(|| CasbinGuard(Some(Status::BadGateway)));
+                request.local_cache(|| PermissionsGuard(Some(Status::BadGateway)));
             }
         }
     }
