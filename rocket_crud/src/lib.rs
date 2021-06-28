@@ -1,8 +1,4 @@
-use casbin::prelude::Enforcer;
-use casbin::CoreApi;
-use casbin::{Result as CasbinResult, TryIntoAdapter, TryIntoModel};
-
-use async_mutex::Mutex;
+pub mod access_control;
 
 pub use rocket_crud_macros::crud;
 
@@ -12,12 +8,14 @@ pub trait CrudUpdatableMarker {}
 
 pub use either::Either;
 
-use rocket::data::Data;
-use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::ContentType;
 use rocket::request::{self, FromRequest, Outcome, Request};
 use serde::de::{Deserialize, Deserializer};
 use std::convert::Infallible;
+
+use diesel::result::Error as DieselError;
+use rocket::http::Status;
+use rocket::serde::json::{json, Json};
 
 pub type RocketCrudResponse<T> = (
     ::rocket::http::Status,
@@ -104,10 +102,6 @@ where
     Deserialize::deserialize(de).map(Some)
 }
 
-use diesel::result::Error as DieselError;
-use rocket::http::Status;
-use rocket::serde::json::{json, Json};
-
 pub fn db_error_to_response<T>(error: DieselError) -> RocketCrudResponse<T> {
     match error {
         DieselError::NotFound => (
@@ -170,7 +164,7 @@ where
     <T as FromStr>::Err: Into<ParseError>,
 {
     input
-        .split(",")
+        .split(',')
         .map(|segment| segment.parse())
         .collect::<Result<Vec<T>, <T as FromStr>::Err>>()
         .map_err(|e: <T as FromStr>::Err| e.into())
@@ -202,9 +196,7 @@ where
             FilterOperator::Ge(v) => FilterOperator::Ne(Some(v)),
             FilterOperator::Lt(v) => FilterOperator::Ne(Some(v)),
             FilterOperator::Le(v) => FilterOperator::Ne(Some(v)),
-            FilterOperator::EqAny(v) => {
-                FilterOperator::EqAny(v.into_iter().map(|v| Some(v)).collect())
-            }
+            FilterOperator::EqAny(v) => FilterOperator::EqAny(v.into_iter().map(Some).collect()),
         })
     }
 }
@@ -288,112 +280,5 @@ impl<'v> From<Error> for ::rocket::form::error::ErrorKind<'v> {
     fn from(_: Error) -> Self {
         // TODO: a better implementation of this
         ::rocket::form::error::ErrorKind::Unknown
-    }
-}
-
-pub enum EnforcedBy {
-    Subject(String),
-    SubjectAndDomain { subject: String, domain: String },
-    ForbidAll,
-}
-
-impl Default for EnforcedBy {
-    fn default() -> Self {
-        EnforcedBy::ForbidAll
-    }
-}
-
-#[derive(Clone)]
-pub struct PermissionsGuard(Option<Status>);
-
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for PermissionsGuard {
-    type Error = ();
-
-    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
-        match *request.local_cache(|| PermissionsGuard(Status::from_code(0))) {
-            PermissionsGuard(Some(status)) if status == Status::Ok => {
-                request::Outcome::Success(PermissionsGuard(Some(Status::Ok)))
-            }
-            PermissionsGuard(Some(err_status)) => request::Outcome::Failure((err_status, ())),
-            _ => request::Outcome::Failure((Status::BadGateway, ())),
-        }
-    }
-}
-
-type PermissionsEnforcer = std::sync::Arc<Mutex<Enforcer>>;
-
-#[derive(Clone)]
-pub struct PermissionsFairing {
-    pub enforcer: PermissionsEnforcer,
-}
-
-impl PermissionsFairing {
-    pub async fn new<M: TryIntoModel, A: TryIntoAdapter>(m: M, a: A) -> CasbinResult<Self> {
-        let enforcer: Enforcer = Enforcer::new(m, a).await?;
-        Ok(PermissionsFairing {
-            enforcer: std::sync::Arc::new(Mutex::new(enforcer)),
-        })
-    }
-
-    pub fn enforcer(&mut self) -> PermissionsEnforcer {
-        self.enforcer.clone()
-    }
-
-    pub fn with_enforcer(e: PermissionsEnforcer) -> PermissionsFairing {
-        PermissionsFairing { enforcer: e }
-    }
-}
-
-async fn casbin_enforce(
-    enforcer: PermissionsEnforcer,
-    enforce_arcs: impl casbin::EnforceArgs,
-) -> PermissionsGuard {
-    let mut mutex_guard = enforcer.lock().await;
-    let guard = mutex_guard.enforce_mut(enforce_arcs);
-    drop(mutex_guard);
-
-    PermissionsGuard(Some(match guard {
-        Ok(true) => Status::Ok,
-        Ok(false) => Status::Forbidden,
-        Err(_) => Status::BadGateway,
-    }))
-}
-
-#[rocket::async_trait]
-impl Fairing for PermissionsFairing {
-    fn info(&self) -> Info {
-        Info {
-            name: "PermissionsFairing",
-            kind: Kind::Request | Kind::Response,
-        }
-    }
-
-    async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
-        let path = request.uri().path().to_string();
-        let action = request.method().as_str().to_owned();
-
-        let enforced_by = request.local_cache(EnforcedBy::default);
-        match enforced_by {
-            EnforcedBy::Subject(subject) => {
-                let status = casbin_enforce(
-                    self.enforcer.clone(),
-                    vec![subject.to_owned(), path, action],
-                )
-                .await;
-                request.local_cache(|| status);
-            }
-            EnforcedBy::SubjectAndDomain { subject, domain } => {
-                let status = casbin_enforce(
-                    self.enforcer.clone(),
-                    vec![subject.to_owned(), domain.to_owned(), path, action],
-                )
-                .await;
-                request.local_cache(|| status);
-            }
-            EnforcedBy::ForbidAll => {
-                request.local_cache(|| PermissionsGuard(Some(Status::BadGateway)));
-            }
-        }
     }
 }
