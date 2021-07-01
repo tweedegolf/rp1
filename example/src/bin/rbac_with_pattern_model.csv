@@ -1,0 +1,4 @@
+p, bob, /comments, GET
+p, admin, /users, POST
+
+g, bob, admin
