@@ -91,26 +91,25 @@ impl Fairing for PermissionsFairing {
         let action = request.method().as_str().to_owned();
 
         let enforced_by = request.local_cache(EnforcedBy::default);
-        match enforced_by {
+
+        let status = match enforced_by {
             EnforcedBy::Subject(subject) => {
-                let status = casbin_enforce(
+                casbin_enforce(
                     self.enforcer.clone(),
                     vec![subject.to_owned(), path, action],
                 )
-                .await;
-                request.local_cache(|| status);
+                .await
             }
             EnforcedBy::SubjectAndDomain { subject, domain } => {
-                let status = casbin_enforce(
+                casbin_enforce(
                     self.enforcer.clone(),
                     vec![subject.to_owned(), domain.to_owned(), path, action],
                 )
-                .await;
-                request.local_cache(|| status);
+                .await
             }
-            EnforcedBy::ForbidAll => {
-                request.local_cache(|| PermissionsGuard(Status::BadGateway));
-            }
-        }
+            EnforcedBy::ForbidAll => PermissionsGuard(Status::BadGateway),
+        };
+
+        request.local_cache(|| status);
     }
 }
