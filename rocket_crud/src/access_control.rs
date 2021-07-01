@@ -21,7 +21,7 @@ impl Default for EnforcedBy {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PermissionsGuard(Status);
 
 #[rocket::async_trait]
@@ -29,12 +29,27 @@ impl<'r> FromRequest<'r> for PermissionsGuard {
     type Error = ();
 
     async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
-        match *request.local_cache(|| PermissionsGuard(Status::BadGateway)) {
+        let status = request.local_cache(|| PermissionsGuard(Status::Forbidden));
+        dbg!(&status);
+
+        match *status {
             PermissionsGuard(status) if status == Status::Ok => {
                 request::Outcome::Success(PermissionsGuard(Status::Ok))
             }
             PermissionsGuard(err_status) => request::Outcome::Failure((err_status, ())),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NoPermissionsGuard;
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for NoPermissionsGuard {
+    type Error = ();
+
+    async fn from_request(_: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        request::Outcome::Success(NoPermissionsGuard)
     }
 }
 
@@ -107,9 +122,27 @@ impl Fairing for PermissionsFairing {
                 )
                 .await
             }
-            EnforcedBy::ForbidAll => PermissionsGuard(Status::BadGateway),
+            EnforcedBy::ForbidAll => PermissionsGuard(Status::Forbidden),
         };
 
+        dbg!(&status);
+
         request.local_cache(|| status);
+    }
+}
+
+pub struct AlwaysAdminFairing;
+
+#[rocket::async_trait]
+impl Fairing for AlwaysAdminFairing {
+    fn info(&self) -> Info {
+        Info {
+            name: "AlwaysAdminFairing",
+            kind: Kind::Request | Kind::Response,
+        }
+    }
+
+    async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
+        request.local_cache(|| EnforcedBy::Subject("alice".into()));
     }
 }

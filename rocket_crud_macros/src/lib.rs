@@ -10,6 +10,7 @@ use syn::{GenericArgument, Type};
 fn enabled() -> bool {
     true
 }
+
 #[derive(Debug, darling::FromMeta)]
 struct CrudPropsBuilder {
     #[darling(rename = "database")]
@@ -26,6 +27,8 @@ struct CrudPropsBuilder {
     delete: bool,
     #[darling(default = "enabled")]
     list: bool,
+    #[darling(default = "enabled")]
+    casbin: bool,
     #[darling(default, rename = "module")]
     module_name: Option<syn::Ident>,
     #[darling(skip)] // TODO: allow specifying the identifier for the new struct
@@ -49,6 +52,7 @@ struct CrudProps {
     update: bool,
     delete: bool,
     list: bool,
+    casbin: bool,
     module_name: syn::Ident,
     ident: syn::Ident,
     new_ident: syn::Ident,
@@ -92,6 +96,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
             read: v.read,
             update: v.update,
             delete: v.delete,
+            casbin: v.casbin,
             list: v.list,
             table_name: v
                 .table_name
@@ -106,6 +111,12 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     input.vis = syn::Visibility::Public(syn::VisPublic {
         pub_token: syn::Token!(pub)([proc_macro2::Span::call_site()]),
     });
+
+    let permissions_guard = if props.casbin {
+        quote!(::rocket_crud::access_control::PermissionsGuard)
+    } else {
+        quote!(::rocket_crud::access_control::NoPermissionsGuard)
+    };
 
     // names of _all_ fields: both generated and user-supplied
     // but we exclude anything marked `not_sortable`
@@ -169,7 +180,8 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     if props.list {
-        let (toks, mut func) = derive_crud_list(&input, &sortable_fields, &props);
+        let (toks, mut func) =
+            derive_crud_list(&input, &sortable_fields, &props, &permissions_guard);
         tokens.push(toks);
         funcs.append(&mut func);
     }
@@ -454,6 +466,7 @@ fn derive_crud_list(
     input: &syn::ItemStruct,
     field_names: &[syn::Ident],
     props: &CrudProps,
+    permissions_guard: &proc_macro2::TokenStream,
 ) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
     let CrudProps {
         database_struct,
@@ -659,9 +672,11 @@ fn derive_crud_list(
             }
         }
 
+
         #[::rocket::get("/?<sort>&<offset>&<limit>&<filter>")]
         async fn list_fn(
             db: #database_struct,
+            _permissions_guard: #permissions_guard,
             sort: Vec<::rocket_crud::SortSpec<SortableFields>>,
             filter: FilterSpec,
             offset: Option<i64>,

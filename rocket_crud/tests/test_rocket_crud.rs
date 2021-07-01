@@ -86,7 +86,7 @@ fn clear_database() {
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud(database = "Db", table_name = "users")]
+#[rocket_crud::crud(database = "Db", table_name = "users", casbin = false)]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, diesel::Queryable)]
 struct User {
     #[primary_key]
