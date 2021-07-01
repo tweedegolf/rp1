@@ -47,11 +47,14 @@ impl<'v, T: rocket::form::FromFormField<'v>> SortSpec<T> {
     ) -> rocket::form::Result<'v, SortSpec<T>> {
         let mut direction = SortDirection::Asc;
         if data.starts_with('-') {
-            data = &data[1..];
+            data = data.trim_start_matches('-');
             direction = SortDirection::Desc;
         } else if data.starts_with('+') {
-            data = &data[1..];
+            data = data.trim_start_matches('+');
         }
+
+        // in practice, a `sort=+username` will give us a data that starts with a space ` username`
+        data = data.trim_start_matches(' ');
 
         let field = rocket::form::FromFormField::from_value(rocket::form::ValueField {
             name: *name,

@@ -63,11 +63,31 @@ mod schema {
 
 use rocket_sync_db_pools::database;
 
+fn clear_database() {
+    use diesel::connection::Connection;
+    use diesel::prelude::RunQueryDsl;
+
+    let url_origin = "postgres://crud@127.0.0.1:5432/crud";
+    let connection = diesel::PgConnection::establish(url_origin).unwrap();
+
+    diesel::delete(schema::comments::table)
+        .execute(&connection)
+        .unwrap();
+
+    diesel::delete(schema::posts::table)
+        .execute(&connection)
+        .unwrap();
+
+    diesel::delete(schema::users::table)
+        .execute(&connection)
+        .unwrap();
+}
+
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
 #[rocket_crud::crud(database = "Db", table_name = "users")]
-#[derive(Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize, diesel::Queryable)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, diesel::Queryable)]
 struct User {
     #[primary_key]
     pub id: i32,
@@ -237,31 +257,10 @@ fn delete_user() {
 
 #[test]
 fn retrieve_list_user() {
-    use diesel::prelude::RunQueryDsl;
-
     let r = init_rocket();
     let client = Client::tracked(r).expect("valid rocket instance");
 
-    let url_origin = "postgres://crud@127.0.0.1:5432/crud";
-    // let db_name = "crud";
-
-    {
-        use diesel::connection::Connection;
-
-        let connection = diesel::PgConnection::establish(url_origin).unwrap();
-
-        diesel::delete(schema::comments::table)
-            .execute(&connection)
-            .unwrap();
-
-        diesel::delete(schema::posts::table)
-            .execute(&connection)
-            .unwrap();
-
-        diesel::delete(schema::users::table)
-            .execute(&connection)
-            .unwrap();
-    }
+    clear_database();
 
     let create_user_1 = client
         .post("/users/")
@@ -292,4 +291,115 @@ fn retrieve_list_user() {
     let users = response.into_json::<Vec<User>>().unwrap();
 
     assert_eq!(&users, &[create_user_1, create_user_2, create_user_3]);
+}
+
+#[test]
+fn retrieve_list_user_sort() {
+    let r = init_rocket();
+    let client = Client::tracked(r).expect("valid rocket instance");
+
+    clear_database();
+
+    let create_user_1 = client
+        .post("/users/")
+        .body(r#"{ "username" : "alice" }"#)
+        .header(ContentType::JSON)
+        .dispatch()
+        .into_json::<User>()
+        .unwrap();
+
+    let create_user_2 = client
+        .post("/users/")
+        .body(r#"{ "username" : "eve" }"#)
+        .header(ContentType::JSON)
+        .dispatch()
+        .into_json::<User>()
+        .unwrap();
+
+    let create_user_3 = client
+        .post("/users/")
+        .body(r#"{ "username" : "bob" }"#)
+        .header(ContentType::JSON)
+        .dispatch()
+        .into_json::<User>()
+        .unwrap();
+
+    // a to z
+    let response = client.get("/users?sort=username").dispatch();
+    let users = response.into_json::<Vec<User>>().unwrap();
+    assert_eq!(
+        &users,
+        &[
+            create_user_1.clone(),
+            create_user_3.clone(),
+            create_user_2.clone()
+        ]
+    );
+
+    // a to z, but different
+    let response = client.get("/users?sort=+username").dispatch();
+    let users = response.into_json::<Vec<User>>().unwrap();
+    assert_eq!(
+        &users,
+        &[
+            create_user_1.clone(),
+            create_user_3.clone(),
+            create_user_2.clone()
+        ]
+    );
+
+    // z to a
+    let response = client.get("/users?sort=-username").dispatch();
+    let users = response.into_json::<Vec<User>>().unwrap();
+    assert_eq!(&users, &[create_user_2, create_user_3, create_user_1]);
+}
+
+#[test]
+fn retrieve_list_user_filter() {
+    let r = init_rocket();
+    let client = Client::tracked(r).expect("valid rocket instance");
+
+    clear_database();
+
+    let create_user_1 = client
+        .post("/users/")
+        .body(r#"{ "username" : "alice" }"#)
+        .header(ContentType::JSON)
+        .dispatch()
+        .into_json::<User>()
+        .unwrap();
+
+    let create_user_2 = client
+        .post("/users/")
+        .body(r#"{ "username" : "eve" }"#)
+        .header(ContentType::JSON)
+        .dispatch()
+        .into_json::<User>()
+        .unwrap();
+
+    let create_user_3 = client
+        .post("/users/")
+        .body(r#"{ "username" : "bob" }"#)
+        .header(ContentType::JSON)
+        .dispatch()
+        .into_json::<User>()
+        .unwrap();
+
+    let response = client.get("/users?filter[username]in=alice").dispatch();
+    let users = response.into_json::<Vec<User>>().unwrap();
+    assert_eq!(&users, &[create_user_1.clone()]);
+
+    let response = client.get("/users?limit=2").dispatch();
+    let users = response.into_json::<Vec<User>>().unwrap();
+    assert_eq!(&users, &[create_user_1.clone(), create_user_2.clone()]);
+
+    let response = client
+        .get(format!("/users?filter[id]gt={}", create_user_1.id))
+        .dispatch();
+    let users = response.into_json::<Vec<User>>().unwrap();
+    assert_eq!(&users, &[create_user_2.clone(), create_user_3.clone(),]);
+
+    let response = client.get("/users?offset=1").dispatch();
+    let users = response.into_json::<Vec<User>>().unwrap();
+    assert_eq!(&users, &[create_user_2, create_user_3]);
 }
