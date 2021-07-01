@@ -73,8 +73,8 @@ async fn rocket() -> _ {
     };
 
     rocket::build()
-        .attach(casbin_fairing)
         .attach(rocket_crud::access_control::AlwaysAdminFairing)
+        .attach(casbin_fairing)
         .mount("/users", User::get_routes())
         .mount("/posts", Post::get_routes())
         .mount("/comments", Comment::get_routes())

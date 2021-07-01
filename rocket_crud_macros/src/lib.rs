@@ -154,13 +154,13 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     if props.create {
         tokens.push(derive_crud_insertable(&non_generated_fields, &props));
 
-        let (toks, mut func) = derive_crud_create(&props);
+        let (toks, mut func) = derive_crud_create(&props, &permissions_guard);
         tokens.push(toks);
         funcs.append(&mut func);
     }
 
     if props.read {
-        let (toks, mut func) = derive_crud_read(&props);
+        let (toks, mut func) = derive_crud_read(&props, &permissions_guard);
         tokens.push(toks);
         funcs.append(&mut func);
     }
@@ -168,13 +168,13 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     if props.update {
         tokens.push(derive_crud_updatable(non_generated_fields, &props));
 
-        let (toks, mut func) = derive_crud_update(&props);
+        let (toks, mut func) = derive_crud_update(&props, &permissions_guard);
         tokens.push(toks);
         funcs.append(&mut func);
     }
 
     if props.delete {
-        let (toks, mut func) = derive_crud_delete(&props);
+        let (toks, mut func) = derive_crud_delete(&props, &permissions_guard);
         tokens.push(toks);
         funcs.append(&mut func);
     }
@@ -238,7 +238,10 @@ fn derive_crud_insertable(
     tokens
 }
 
-fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
+fn derive_crud_create(
+    props: &CrudProps,
+    permissions_guard: &proc_macro2::TokenStream,
+) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
     let CrudProps {
         database_struct,
         new_ident,
@@ -252,6 +255,7 @@ fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
         #[::rocket::post("/", format = "json", data = "<value>")]
         async fn create_fn_json(
             db: #database_struct,
+            _permissions_guard: #permissions_guard,
             value: ::rocket::serde::json::Json<#new_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
@@ -296,7 +300,10 @@ fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
     )
 }
 
-fn derive_crud_read(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
+fn derive_crud_read(
+    props: &CrudProps,
+    permissions_guard: &proc_macro2::TokenStream,
+) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
     let CrudProps {
         database_struct,
         ident,
@@ -309,6 +316,7 @@ fn derive_crud_read(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Id
         #[::rocket::get("/<id>")]
         async fn read_fn(
             db: #database_struct,
+            _permissions_guard: #permissions_guard,
             id: i32
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
@@ -374,7 +382,10 @@ fn derive_crud_updatable(
     }
 }
 
-fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
+fn derive_crud_update(
+    props: &CrudProps,
+    permissions_guard: &proc_macro2::TokenStream,
+) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
     let CrudProps {
         database_struct,
         ident,
@@ -388,6 +399,7 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
         #[::rocket::patch("/<id>", format = "json", data = "<value>")]
         async fn update_fn_json(
             db: #database_struct,
+            _permissions_guard: #permissions_guard,
             id: i32,
             value: ::rocket::serde::json::Json<#update_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
@@ -408,6 +420,7 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
         #[::rocket::patch("/form/<id>", data = "<value>")]
         async fn update_fn_form(
             db: #database_struct,
+            _permissions_guard: #permissions_guard,
             id: i32,
             value: ::rocket::form::Form<#update_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
@@ -434,7 +447,10 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
     )
 }
 
-fn derive_crud_delete(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
+fn derive_crud_delete(
+    props: &CrudProps,
+    permissions_guard: &proc_macro2::TokenStream,
+) -> (proc_macro2::TokenStream, Vec<syn::Ident>) {
     let CrudProps {
         database_struct,
         table_name,
@@ -446,6 +462,7 @@ fn derive_crud_delete(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
         #[::rocket::delete("/<id>")]
         async fn delete_fn(
             db: #database_struct,
+            _permissions_guard: #permissions_guard,
             id: i32
         ) -> ::rocket_crud::RocketCrudResponse<usize>
         {

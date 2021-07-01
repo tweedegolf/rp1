@@ -1,4 +1,4 @@
 p, bob, /comments, GET
-p, admin, /users, POST
+p, admin, /users, GET
 
-g, bob, admin
+g, alice, admin

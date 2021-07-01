@@ -9,6 +9,7 @@ use rocket::request::{self, FromRequest, Request};
 
 use async_mutex::Mutex;
 
+#[derive(Debug)]
 pub enum EnforcedBy {
     Subject(String),
     SubjectAndDomain { subject: String, domain: String },
@@ -107,8 +108,11 @@ impl Fairing for PermissionsFairing {
 
         let enforced_by = request.local_cache(EnforcedBy::default);
 
+        dbg!(&enforced_by);
+
         let status = match enforced_by {
             EnforcedBy::Subject(subject) => {
+                dbg!(&subject, &path, &action);
                 casbin_enforce(
                     self.enforcer.clone(),
                     vec![subject.to_owned(), path, action],
@@ -143,6 +147,6 @@ impl Fairing for AlwaysAdminFairing {
     }
 
     async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
-        request.local_cache(|| EnforcedBy::Subject("alice".into()));
+        dbg!(request.local_cache(|| EnforcedBy::Subject("alice".into())));
     }
 }
