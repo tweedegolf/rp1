@@ -1,4 +1,6 @@
 use rocket::http::ContentType;
+use rocket::Build;
+use rocket::Rocket;
 
 use crate::schema;
 
@@ -39,9 +41,7 @@ struct User {
     pub updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket::launch]
-#[allow(dead_code)]
-fn init_rocket() -> _ {
+fn init_rocket() -> Rocket<Build> {
     rocket::build()
         .mount("/users", User::get_routes())
         // .mount("/posts", Post::get_routes())

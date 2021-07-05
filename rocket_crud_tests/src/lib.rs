@@ -5,3 +5,4 @@ extern crate diesel;
 
 mod endpoints;
 mod schema;
+mod validate;
