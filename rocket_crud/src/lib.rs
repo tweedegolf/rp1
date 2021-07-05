@@ -100,8 +100,20 @@ where
 }
 
 use diesel::result::Error as DieselError;
+use validator::ValidationErrors;
 use rocket::http::Status;
 use rocket::serde::json::{json, Json};
+
+pub fn validation_error_to_response<T>(errors: ValidationErrors) -> RocketCrudResponse<T> {
+    let field_errors = errors.field_errors();
+    (
+        Status::BadRequest,
+        Either::Right(json!({
+            "error": 400,
+            "message": format!("{:?}", field_errors),
+        })),
+    )
+}
 
 pub fn db_error_to_response<T>(error: DieselError) -> RocketCrudResponse<T> {
     match error {

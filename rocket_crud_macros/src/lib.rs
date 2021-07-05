@@ -212,6 +212,7 @@ fn derive_crud_insertable(
         #[derive(::diesel::Queryable)]
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
+        #[derive(::validator::Validate)]
         #[table_name = #table_name]
         struct #new_ident {
             #(#non_generated_fields),*
@@ -239,9 +240,14 @@ fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
             value: ::rocket::serde::json::Json<#new_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
-            use ::rocket_crud::{ok_to_response, db_error_to_response};
+            use ::rocket_crud::{ok_to_response, db_error_to_response, validation_error_to_response};
+            use ::validator::Validate;
 
             let value = value.into_inner();
+            match value.validate() {
+                Ok(_) => {},
+                Err(e) => return validation_error_to_response(e),
+            };
 
             db.run(move |conn| {
                 diesel::insert_into(#schema_path::#table_name::table)
@@ -258,9 +264,14 @@ fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
             value: ::rocket::form::Form<#new_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
-            use ::rocket_crud::{ok_to_response, db_error_to_response};
+            use ::rocket_crud::{ok_to_response, db_error_to_response, validation_error_to_response};
+            use ::validator::Validate;
 
             let value = value.into_inner();
+            match value.validate() {
+                Ok(_) => {},
+                Err(e) => return validation_error_to_response(e),
+            };
 
             db.run(move |conn| {
                 diesel::insert_into(#schema_path::#table_name::table)
@@ -348,6 +359,7 @@ fn derive_crud_updatable(
         #[derive(::diesel::AsChangeset)]
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
+        #[derive(::validator::Validate)]
         #[derive(Default)]
         #[table_name = #table_name]
         struct #update_ident {
