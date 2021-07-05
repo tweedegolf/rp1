@@ -1114,6 +1114,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+ "validator",
 ]
 
 [[package]]

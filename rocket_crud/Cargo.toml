@@ -6,7 +6,6 @@ license = "UPL-1.0"
 edition = "2018"
 
 [dependencies]
-rocket-crud-macros = { path = "../rocket_crud_macros/", features = ["validator"] }
 either = "1.6.1"
 serde = "1.0.126"
 serde_json = "1.0.64"
@@ -14,8 +13,14 @@ rocket = "0.5.0-rc.1"
 diesel = { version = "1.4.6" }
 thiserror = "1.0.25"
 chrono = "0.4.19"
+
+rocket-crud-macros = { path = "../rocket_crud_macros/" }
+
 # optional = true automatically creates feature flag "validator"
 validator = { version = "0.14.0", features = ["derive"], optional = true }
+
+[features]
+validate = [ "validator", "rocket-crud-macros/validator" ]
 
 [dev-dependencies]
 rocket-crud = { path = "../rocket_crud/" }
