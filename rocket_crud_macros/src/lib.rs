@@ -207,12 +207,20 @@ fn derive_crud_insertable(
     let orig_ident = &props.ident;
     let table_name = props.table_name.to_string();
 
+    let derive_validate = if cfg!(feature = "validator") {
+        Some(quote::quote! {
+            #[derive(::validator::Validate)]
+        })
+    } else {
+        None
+    };
+
     let tokens = quote::quote! {
         #[derive(::diesel::Insertable)]
         #[derive(::diesel::Queryable)]
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
-        #[derive(::validator::Validate)]
+        #derive_validate
         #[table_name = #table_name]
         struct #new_ident {
             #(#non_generated_fields),*
@@ -238,13 +246,17 @@ fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
             db: #database_struct,
             value: #new_ident
         ) -> ::rocket_crud::RocketCrudResponse<#ident> {
-            use ::rocket_crud::{ok_to_response, db_error_to_response, validation_error_to_response};
-            use ::validator::Validate;
+            use ::rocket_crud::{ok_to_response, db_error_to_response};
 
-            match value.validate() {
-                Ok(_) => {},
-                Err(e) => return validation_error_to_response(e),
-            };
+            #[cfg(feature = "validator")]
+            {
+                use ::rocket_crud::validation_error_to_response;
+                use ::validator::Validate;
+                match value.validate() {
+                    Ok(_) => {},
+                    Err(e) => return validation_error_to_response(e),
+                };
+            }
 
             db.run(move |conn| {
                 diesel::insert_into(#schema_path::#table_name::table)
@@ -376,12 +388,17 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
     let tokens = quote! {
         async fn update_fn_help(db: #database_struct, id: i32, value: #update_ident
             ) -> ::rocket_crud::RocketCrudResponse<#ident> {
-            use ::rocket_crud::{ok_to_response, db_error_to_response, validation_error_to_response};
-            use ::validator::Validate;
-            match value.validate() {
-                Ok(_) => {},
-                Err(e) => return validation_error_to_response(e),
-            };
+            use ::rocket_crud::{ok_to_response, db_error_to_response};
+
+            #[cfg(feature = "validator")]
+            {
+                use ::rocket_crud::validation_error_to_response;
+                use ::validator::Validate;
+                match value.validate() {
+                    Ok(_) => {},
+                    Err(e) => return validation_error_to_response(e),
+                };
+            }
 
             db.run(move |conn| {
                 diesel::update(#schema_path::#table_name::table.find(id))
