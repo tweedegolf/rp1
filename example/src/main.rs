@@ -11,10 +11,11 @@ use rocket_sync_db_pools::database;
 struct Db(diesel::PgConnection);
 
 #[rocket_crud::crud(database = "Db", table_name = "users")]
-#[derive(serde::Serialize, diesel::Queryable)]
+#[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
     id: i32,
+    #[validate(email)]
     username: String,
     #[generated]
     created_at: chrono::NaiveDateTime,

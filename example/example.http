@@ -27,9 +27,28 @@ Accept: application/json
 
 POST http://localhost:8000/users HTTP/1.1
 Content-Type: application/json
+Accept: application/json
+
+{
+  "username": "arjen@tweedegolf.com"
+}
+
+###
+
+PATCH http://localhost:8000/users/1 HTTP/1.1
+Content-Type: application/json
 
 {
   "username": "arjen"
+}
+
+###
+
+PATCH http://localhost:8000/users/1 HTTP/1.1
+Content-Type: application/json
+
+{
+  "username": "arjen@tweedegolf.com"
 }
 
 
