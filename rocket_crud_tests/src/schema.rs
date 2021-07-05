@@ -1,6 +1,3 @@
-use diesel::prelude::*;
-use diesel::*;
-
 table! {
     comments (id) {
         id -> Int4,
