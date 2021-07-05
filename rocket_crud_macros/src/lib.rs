@@ -52,6 +52,7 @@ struct CrudProps {
     new_ident: syn::Ident,
     update_ident: syn::Ident,
     table_name: syn::Ident,
+    primary_key: syn::Type,
     max_limit: i64,
 }
 
@@ -68,6 +69,17 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut input = parse_macro_input!(item as syn::ItemStruct);
     let attr_args = parse_macro_input!(args as syn::AttributeArgs);
+
+    let mut primary_keys: Vec<_> = input
+        .fields
+        .iter()
+        .filter(|f| f.attrs.iter().any(|a| a.path.is_ident("primary_key")))
+        .map(|f| f.ty.clone())
+        .collect();
+
+    debug_assert_eq!(primary_keys.len(), 1);
+
+    let primary_key = primary_keys.pop().unwrap();
 
     let props = match CrudPropsBuilder::from_list(&attr_args) {
         Ok(v) => CrudProps {
@@ -94,6 +106,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
                 .table_name
                 .unwrap_or_else(|| format_ident!("{}", to_snake_case(&input.ident.to_string()))),
             max_limit: v.max_limit.unwrap_or(100),
+            primary_key,
         },
         Err(e) => return e.write_errors().into(),
     };
@@ -307,14 +320,16 @@ fn derive_crud_read(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::Id
         ident,
         schema_path,
         table_name,
+        primary_key,
         ..
     } = props;
 
     let tokens = quote! {
+
         #[::rocket::get("/<id>")]
         async fn read_fn(
             db: #database_struct,
-            id: i32
+            id: #primary_key,
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
             use ::rocket_crud::{ok_to_response, db_error_to_response};
@@ -395,6 +410,7 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
         update_ident,
         schema_path,
         table_name,
+        primary_key,
         ..
     } = props;
 
@@ -412,7 +428,7 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
     };
 
     let tokens = quote! {
-        async fn update_fn_help(db: #database_struct, id: i32, value: #update_ident
+        async fn update_fn_help(db: #database_struct, id: #primary_key, value: #update_ident
             ) -> ::rocket_crud::RocketCrudResponse<#ident> {
             use ::rocket_crud::{ok_to_response, db_error_to_response};
 
@@ -430,7 +446,7 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
         #[::rocket::patch("/<id>", format = "json", data = "<value>")]
         async fn update_fn_json(
             db: #database_struct,
-            id: i32,
+            id: #primary_key,
             value: ::rocket::serde::json::Json<#update_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
@@ -441,7 +457,7 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
         #[::rocket::patch("/form/<id>", data = "<value>")]
         async fn update_fn_form(
             db: #database_struct,
-            id: i32,
+            id: #primary_key,
             value: ::rocket::form::Form<#update_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
@@ -463,6 +479,7 @@ fn derive_crud_delete(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
         database_struct,
         table_name,
         schema_path,
+        primary_key,
         ..
     } = props;
 
@@ -470,7 +487,7 @@ fn derive_crud_delete(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
         #[::rocket::delete("/<id>")]
         async fn delete_fn(
             db: #database_struct,
-            id: i32
+            id: #primary_key,
         ) -> ::rocket_crud::RocketCrudResponse<usize>
         {
             use ::rocket_crud::{ok_to_response, db_error_to_response};

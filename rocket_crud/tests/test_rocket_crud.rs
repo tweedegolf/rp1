@@ -111,26 +111,6 @@ use rocket::http::Status;
 use rocket::local::blocking::Client;
 
 #[test]
-fn test1() {
-    let client = Client::tracked(init_rocket()).expect("valid rocket instance");
-    let response = client.get("/users").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-
-    assert_eq!(
-        response.into_json::<Vec<User>>().unwrap(),
-        vec![],
-        /*(
-        User {
-            id: 0,
-            username: String::new(),
-            created_at: chrono::NaiveDateTime::from_timestamp(0, 0),
-            updated_at: chrono::NaiveDateTime::from_timestamp(0, 0)
-        }
-        */
-    );
-}
-
-#[test]
 fn create_user_json() {
     let client = Client::tracked(init_rocket()).expect("valid rocket instance");
     let response = client
