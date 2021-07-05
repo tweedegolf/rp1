@@ -134,19 +134,3 @@ impl Fairing for PermissionsFairing {
         request.local_cache(|| status);
     }
 }
-
-pub struct AlwaysAdminFairing;
-
-#[rocket::async_trait]
-impl Fairing for AlwaysAdminFairing {
-    fn info(&self) -> Info {
-        Info {
-            name: "AlwaysAdminFairing",
-            kind: Kind::Request | Kind::Response,
-        }
-    }
-
-    async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
-        dbg!(request.local_cache(|| EnforcedBy::Subject("alice".into())));
-    }
-}

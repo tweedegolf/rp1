@@ -6,6 +6,10 @@ extern crate rocket;
 #[path = "../schema.rs"]
 mod schema;
 
+use rocket::data::Data;
+use rocket::fairing::{Fairing, Info, Kind};
+use rocket::request::{FromRequest, Request};
+use rocket_crud::access_control::EnforcedBy;
 use rocket_sync_db_pools::database;
 
 #[database("diesel")]
@@ -56,6 +60,22 @@ struct Comment {
     updated_at: chrono::NaiveDateTime,
 }
 
+pub struct AlwaysAdminFairing;
+
+#[rocket::async_trait]
+impl Fairing for AlwaysAdminFairing {
+    fn info(&self) -> Info {
+        Info {
+            name: "AlwaysAdminFairing",
+            kind: Kind::Request | Kind::Response,
+        }
+    }
+
+    async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
+        request.local_cache(|| EnforcedBy::Subject("admin".into()));
+    }
+}
+
 #[rocket::launch]
 async fn rocket() -> _ {
     use casbin::{DefaultModel, FileAdapter};
@@ -73,7 +93,7 @@ async fn rocket() -> _ {
     };
 
     rocket::build()
-        .attach(rocket_crud::access_control::AlwaysAdminFairing)
+        .attach(AlwaysAdminFairing)
         .attach(casbin_fairing)
         .mount("/users", User::get_routes())
         .mount("/posts", Post::get_routes())
