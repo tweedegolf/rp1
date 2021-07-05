@@ -1134,6 +1134,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rocket_crud_tests"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "diesel",
+ "diesel_migrations",
+ "dotenv",
+ "rocket",
+ "rocket-crud",
+ "rocket_sync_db_pools",
+ "serde",
+ "serde_json",
+ "validator",
+]
+
+[[package]]
 name = "rocket_http"
 version = "0.5.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
