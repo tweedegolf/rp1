@@ -234,16 +234,13 @@ fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
     } = props;
 
     let tokens = quote! {
-        #[::rocket::post("/", format = "json", data = "<value>")]
-        async fn create_fn_json(
+        async fn create_fn_help(
             db: #database_struct,
-            value: ::rocket::serde::json::Json<#new_ident>
-        ) -> ::rocket_crud::RocketCrudResponse<#ident>
-        {
+            value: #new_ident
+        ) -> ::rocket_crud::RocketCrudResponse<#ident> {
             use ::rocket_crud::{ok_to_response, db_error_to_response, validation_error_to_response};
             use ::validator::Validate;
 
-            let value = value.into_inner();
             match value.validate() {
                 Ok(_) => {},
                 Err(e) => return validation_error_to_response(e),
@@ -258,28 +255,24 @@ fn derive_crud_create(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
             .map_or_else(db_error_to_response, ok_to_response)
         }
 
+        #[::rocket::post("/", format = "json", data = "<value>")]
+        async fn create_fn_json(
+            db: #database_struct,
+            value: ::rocket::serde::json::Json<#new_ident>
+        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+        {
+            let value = value.into_inner();
+            create_fn_help(db, value).await
+        }
+
         #[::rocket::post("/form", data = "<value>")]
         async fn create_fn_form(
             db: #database_struct,
             value: ::rocket::form::Form<#new_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
-            use ::rocket_crud::{ok_to_response, db_error_to_response, validation_error_to_response};
-            use ::validator::Validate;
-
             let value = value.into_inner();
-            match value.validate() {
-                Ok(_) => {},
-                Err(e) => return validation_error_to_response(e),
-            };
-
-            db.run(move |conn| {
-                diesel::insert_into(#schema_path::#table_name::table)
-                    .values(&value)
-                    .get_result(conn)
-            })
-            .await
-            .map_or_else(db_error_to_response, ok_to_response)
+            create_fn_help(db, value).await
         }
     };
     (
@@ -381,16 +374,14 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
     } = props;
 
     let tokens = quote! {
-        #[::rocket::patch("/<id>", format = "json", data = "<value>")]
-        async fn update_fn_json(
-            db: #database_struct,
-            id: i32,
-            value: ::rocket::serde::json::Json<#update_ident>
-        ) -> ::rocket_crud::RocketCrudResponse<#ident>
-        {
-            use ::rocket_crud::{ok_to_response, db_error_to_response};
-
-            let value = value.into_inner();
+        async fn update_fn_help(db: #database_struct, id: i32, value: #update_ident
+            ) -> ::rocket_crud::RocketCrudResponse<#ident> {
+            use ::rocket_crud::{ok_to_response, db_error_to_response, validation_error_to_response};
+            use ::validator::Validate;
+            match value.validate() {
+                Ok(_) => {},
+                Err(e) => return validation_error_to_response(e),
+            };
 
             db.run(move |conn| {
                 diesel::update(#schema_path::#table_name::table.find(id))
@@ -401,6 +392,17 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
             .map_or_else(db_error_to_response, ok_to_response)
         }
 
+        #[::rocket::patch("/<id>", format = "json", data = "<value>")]
+        async fn update_fn_json(
+            db: #database_struct,
+            id: i32,
+            value: ::rocket::serde::json::Json<#update_ident>
+        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+        {
+            let value = value.into_inner();
+            update_fn_help(db, id, value).await
+        }
+
         #[::rocket::patch("/form/<id>", data = "<value>")]
         async fn update_fn_form(
             db: #database_struct,
@@ -408,17 +410,8 @@ fn derive_crud_update(props: &CrudProps) -> (proc_macro2::TokenStream, Vec<syn::
             value: ::rocket::form::Form<#update_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
-            use ::rocket_crud::{ok_to_response, db_error_to_response};
-
             let value = value.into_inner();
-
-            db.run(move |conn| {
-                diesel::update(#schema_path::#table_name::table.find(id))
-                    .set(&value)
-                    .get_result(conn)
-            })
-            .await
-            .map_or_else(db_error_to_response, ok_to_response)
+            update_fn_help(db, id, value).await
         }
     };
     (
