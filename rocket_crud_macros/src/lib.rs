@@ -359,12 +359,20 @@ fn derive_crud_updatable(
         ..
     } = props;
 
+    let derive_validate = if cfg!(feature = "validator") {
+        Some(quote::quote! {
+            #[derive(::validator::Validate)]
+        })
+    } else {
+        None
+    };
+
     quote::quote! {
         #[derive(::diesel::Queryable)]
         #[derive(::diesel::AsChangeset)]
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
-        #[derive(::validator::Validate)]
+        #derive_validate
         #[derive(Default)]
         #[table_name = #table_name]
         struct #update_ident {
