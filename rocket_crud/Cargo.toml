@@ -14,11 +14,18 @@ serde = "1.0.126"
 serde_json = "1.0.64"
 thiserror = "1.0.25"
 
+# optional = true automatically creates feature flag "validator"
+validator = { version = "0.14.0", features = ["derive"], optional = true }
+
 [dependencies.diesel]
 version = "1.4.6"
 
 [dependencies.rocket-crud-macros]
 path = "../rocket_crud_macros/"
+
+
+[features]
+validate = [ "validator", "rocket-crud-macros/validator" ]
 
 [dev-dependencies]
 diesel_migrations = "1.4.0"
@@ -44,3 +51,4 @@ path = "../rocket_crud/"
 [dev-dependencies.rocket_sync_db_pools]
 features = ["diesel_postgres_pool"]
 version = "0.1.0-rc.1"
+

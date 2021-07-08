@@ -8,7 +8,7 @@ mod schema;
 
 use rocket::data::Data;
 use rocket::fairing::{Fairing, Info, Kind};
-use rocket::request::{FromRequest, Request};
+use rocket::request::Request;
 use rocket_crud::access_control::EnforcedBy;
 use rocket_sync_db_pools::database;
 

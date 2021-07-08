@@ -105,6 +105,21 @@ where
     Deserialize::deserialize(de).map(Some)
 }
 
+#[cfg(feature = "validator")]
+use validator::ValidationErrors;
+
+#[cfg(feature = "validator")]
+pub fn validation_error_to_response<T>(errors: ValidationErrors) -> RocketCrudResponse<T> {
+    let field_errors = errors.field_errors();
+    (
+        Status::BadRequest,
+        Either::Right(json!({
+            "error": 400,
+            "validation_error": field_errors,
+        })),
+    )
+}
+
 pub fn db_error_to_response<T>(error: DieselError) -> RocketCrudResponse<T> {
     match error {
         DieselError::NotFound => (

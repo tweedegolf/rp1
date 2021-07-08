@@ -58,6 +58,7 @@ struct CrudProps {
     new_ident: syn::Ident,
     update_ident: syn::Ident,
     table_name: syn::Ident,
+    primary_key: syn::Type,
     max_limit: i64,
     enable_casbin_rbac: bool,
 }
@@ -75,6 +76,17 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut input = parse_macro_input!(item as syn::ItemStruct);
     let attr_args = parse_macro_input!(args as syn::AttributeArgs);
+
+    let mut primary_keys: Vec<_> = input
+        .fields
+        .iter()
+        .filter(|f| f.attrs.iter().any(|a| a.path.is_ident("primary_key")))
+        .map(|f| f.ty.clone())
+        .collect();
+
+    debug_assert_eq!(primary_keys.len(), 1);
+
+    let primary_key = primary_keys.pop().unwrap();
 
     let props = match CrudPropsBuilder::from_list(&attr_args) {
         Ok(v) => CrudProps {
@@ -103,6 +115,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
                 .unwrap_or_else(|| format_ident!("{}", to_snake_case(&input.ident.to_string()))),
             max_limit: v.max_limit.unwrap_or(100),
             enable_casbin_rbac: v.enable_casbin_rbac,
+            primary_key,
         },
         Err(e) => return e.write_errors().into(),
     };
@@ -223,11 +236,20 @@ fn derive_crud_insertable(
     let orig_ident = &props.ident;
     let table_name = props.table_name.to_string();
 
+    let derive_validate = if cfg!(feature = "validator") {
+        Some(quote::quote! {
+            #[derive(::validator::Validate)]
+        })
+    } else {
+        None
+    };
+
     let tokens = quote::quote! {
         #[derive(::diesel::Insertable)]
         #[derive(::diesel::Queryable)]
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
+        #derive_validate
         #[table_name = #table_name]
         struct #new_ident {
             #(#non_generated_fields),*
@@ -251,17 +273,28 @@ fn derive_crud_create(
         ..
     } = props;
 
+    let validate = if cfg!(feature = "validator") {
+        Some(quote::quote! {
+            use ::rocket_crud::validation_error_to_response;
+            use ::validator::Validate;
+            match value.validate() {
+                Ok(_) => {},
+                Err(e) => return validation_error_to_response(e),
+            };
+        })
+    } else {
+        None
+    };
+
     let tokens = quote! {
-        #[::rocket::post("/", format = "json", data = "<value>")]
-        async fn create_fn_json(
+        async fn create_fn_help(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
-            value: ::rocket::serde::json::Json<#new_ident>
+            value: #new_ident
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
             use ::rocket_crud::{ok_to_response, db_error_to_response};
 
-            let value = value.into_inner();
+            #validate
 
             db.run(move |conn| {
                 diesel::insert_into(#schema_path::#table_name::table)
@@ -272,23 +305,26 @@ fn derive_crud_create(
             .map_or_else(db_error_to_response, ok_to_response)
         }
 
+        #[::rocket::post("/", format = "json", data = "<value>")]
+        async fn create_fn_json(
+            db: #database_struct,
+            _permissions_guard: #permissions_guard,
+            value: ::rocket::serde::json::Json<#new_ident>
+        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+        {
+            let value = value.into_inner();
+            create_fn_help(db, value).await
+        }
+
         #[::rocket::post("/form", data = "<value>")]
         async fn create_fn_form(
             db: #database_struct,
+            _permissions_guard: #permissions_guard,
             value: ::rocket::form::Form<#new_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
-            use ::rocket_crud::{ok_to_response, db_error_to_response};
-
             let value = value.into_inner();
-
-            db.run(move |conn| {
-                diesel::insert_into(#schema_path::#table_name::table)
-                    .values(&value)
-                    .get_result(conn)
-            })
-            .await
-            .map_or_else(db_error_to_response, ok_to_response)
+            create_fn_help(db, value).await
         }
     };
     (
@@ -309,15 +345,17 @@ fn derive_crud_read(
         ident,
         schema_path,
         table_name,
+        primary_key,
         ..
     } = props;
 
     let tokens = quote! {
+
         #[::rocket::get("/<id>")]
         async fn read_fn(
             db: #database_struct,
             _permissions_guard: #permissions_guard,
-            id: i32
+            id: #primary_key,
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
             use ::rocket_crud::{ok_to_response, db_error_to_response};
@@ -367,11 +405,20 @@ fn derive_crud_updatable(
         ..
     } = props;
 
+    let derive_validate = if cfg!(feature = "validator") {
+        Some(quote::quote! {
+            #[derive(::validator::Validate)]
+        })
+    } else {
+        None
+    };
+
     quote::quote! {
         #[derive(::diesel::Queryable)]
         #[derive(::diesel::AsChangeset)]
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
+        #derive_validate
         #[derive(Default)]
         #[table_name = #table_name]
         struct #update_ident {
@@ -392,21 +439,33 @@ fn derive_crud_update(
         update_ident,
         schema_path,
         table_name,
+        primary_key,
         ..
     } = props;
 
+    let validate = if cfg!(feature = "validator") {
+        Some(quote::quote! {
+            use ::rocket_crud::validation_error_to_response;
+            use ::validator::Validate;
+            match value.validate() {
+                Ok(_) => {},
+                Err(e) => return validation_error_to_response(e),
+            };
+        })
+    } else {
+        None
+    };
+
     let tokens = quote! {
-        #[::rocket::patch("/<id>", format = "json", data = "<value>")]
-        async fn update_fn_json(
+        async fn update_fn_help(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
-            id: i32,
-            value: ::rocket::serde::json::Json<#update_ident>
+            id: #primary_key,
+            value: #update_ident
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
             use ::rocket_crud::{ok_to_response, db_error_to_response};
 
-            let value = value.into_inner();
+            #validate
 
             db.run(move |conn| {
                 diesel::update(#schema_path::#table_name::table.find(id))
@@ -417,25 +476,28 @@ fn derive_crud_update(
             .map_or_else(db_error_to_response, ok_to_response)
         }
 
+        #[::rocket::patch("/<id>", format = "json", data = "<value>")]
+        async fn update_fn_json(
+            db: #database_struct,
+            _permissions_guard: #permissions_guard,
+            id: #primary_key,
+            value: ::rocket::serde::json::Json<#update_ident>
+        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+        {
+            let value = value.into_inner();
+            update_fn_help(db, id, value).await
+        }
+
         #[::rocket::patch("/form/<id>", data = "<value>")]
         async fn update_fn_form(
             db: #database_struct,
             _permissions_guard: #permissions_guard,
-            id: i32,
+            id: #primary_key,
             value: ::rocket::form::Form<#update_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
-            use ::rocket_crud::{ok_to_response, db_error_to_response};
-
             let value = value.into_inner();
-
-            db.run(move |conn| {
-                diesel::update(#schema_path::#table_name::table.find(id))
-                    .set(&value)
-                    .get_result(conn)
-            })
-            .await
-            .map_or_else(db_error_to_response, ok_to_response)
+            update_fn_help(db, id, value).await
         }
     };
     (
@@ -455,6 +517,7 @@ fn derive_crud_delete(
         database_struct,
         table_name,
         schema_path,
+        primary_key,
         ..
     } = props;
 
@@ -463,7 +526,7 @@ fn derive_crud_delete(
         async fn delete_fn(
             db: #database_struct,
             _permissions_guard: #permissions_guard,
-            id: i32
+            id: #primary_key,
         ) -> ::rocket_crud::RocketCrudResponse<usize>
         {
             use ::rocket_crud::{ok_to_response, db_error_to_response};
