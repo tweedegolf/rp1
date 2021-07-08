@@ -1,5 +1,21 @@
 # Rocket Crud
 
+# Access Control with Casbin
+
+See the `casbin-middleware` branch. This is ready to merge.
+
+We integrate with the [casbin](https://github.com/casbin/casbin-rs) library for access control. 
+
+It needs two pieces of configuration, and a way to determine the role from an incomming request.
+
+TODO model, policy, EnforcedBy, Fairing
+
+# Server-Side validation
+
+In general, you cannot trust incomming requests, and sometimes want to do your own validation. For instance, is the the email field actually a valid email address? We integrate with the [validator](https://github.com/Keats/validator) crate. 
+
+Make sure the `validate` feature flag is turned on to use `rocket-crud` together with `validator`. 
+
 ## Design discussion
 
 ```rust
