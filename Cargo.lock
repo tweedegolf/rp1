@@ -1450,6 +1450,7 @@ dependencies = [
 name = "rocket_crud_tests"
 version = "0.1.0"
 dependencies = [
+ "casbin",
  "chrono",
  "diesel",
  "diesel_migrations",
@@ -1459,6 +1460,8 @@ dependencies = [
  "rocket_sync_db_pools",
  "serde",
  "serde_json",
+ "tempfile",
+ "tokio",
  "validator",
 ]
 
