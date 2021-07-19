@@ -6,9 +6,12 @@ use quote::{format_ident, quote};
 use syn::parse_macro_input;
 use syn::{GenericArgument, Type};
 
-// Helper function, some values need to be true by default
 fn enabled() -> bool {
     true
+}
+
+fn disabled() -> bool {
+    false
 }
 
 #[derive(Debug, darling::FromMeta)]
@@ -27,8 +30,8 @@ struct CrudPropsBuilder {
     delete: bool,
     #[darling(default = "enabled")]
     list: bool,
-    #[darling(default = "enabled")]
-    casbin: bool,
+    #[darling(default = "disabled")]
+    ignore_casbin: bool,
     #[darling(default, rename = "module")]
     module_name: Option<syn::Ident>,
     #[darling(skip)] // TODO: allow specifying the identifier for the new struct
@@ -52,7 +55,7 @@ struct CrudProps {
     update: bool,
     delete: bool,
     list: bool,
-    casbin: bool,
+    use_casbin: bool,
     module_name: syn::Ident,
     ident: syn::Ident,
     new_ident: syn::Ident,
@@ -108,7 +111,13 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
             read: v.read,
             update: v.update,
             delete: v.delete,
-            casbin: v.casbin,
+            // if the `casbin` feature flag is on, we can still override the option
+            // to not do authorization on a particular struct
+            use_casbin: if cfg!(feature = "casbin") {
+                true
+            } else {
+                !v.ignore_casbin
+            },
             list: v.list,
             table_name: v
                 .table_name
@@ -125,7 +134,7 @@ pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
         pub_token: syn::Token!(pub)([proc_macro2::Span::call_site()]),
     });
 
-    let permissions_guard = if props.casbin {
+    let permissions_guard = if props.use_casbin {
         quote!(::rocket_crud::access_control::PermissionsGuard)
     } else {
         quote!(::rocket_crud::access_control::NoPermissionsGuard)

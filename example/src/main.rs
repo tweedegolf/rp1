@@ -10,7 +10,7 @@ use rocket_sync_db_pools::database;
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud(database = "Db", table_name = "users", casbin = false)]
+#[rocket_crud::crud(database = "Db", table_name = "users", ignore_casbin = true)]
 #[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
@@ -23,7 +23,7 @@ struct User {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "posts", casbin = false)]
+#[rocket_crud::crud(database = "Db", table_name = "posts", ignore_casbin = true)]
 #[derive(serde::Serialize, diesel::Queryable)]
 struct Post {
     #[primary_key]
@@ -38,7 +38,7 @@ struct Post {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "comments", casbin = false)]
+#[rocket_crud::crud(database = "Db", table_name = "comments", ignore_casbin = true)]
 #[derive(serde::Serialize, diesel::Queryable)]
 struct Comment {
     #[primary_key]
