@@ -5,7 +5,12 @@
 See the `casbin-middleware` branch. This is ready to merge.
 
 We integrate with the [casbin](https://github.com/casbin/casbin-rs) library for access control.
-It needs two pieces of configuration, and a way to determine the role from an incomming request.
+Add the `crud-casbin` feature to the `rocket-crud` dependency declaration. Casbin rules are then 
+checked on all routes by default.
+
+    rocket-crud = { version = "0.1", features = ["crud-casbin"] }
+
+Casbin needs two pieces of configuration, and a way to determine the role from an incomming request.
 
 The model ?:
 
@@ -85,6 +90,16 @@ Finally, we must initialize rocket with the appropriate fairings: our custom fai
 # Access Control: Loading policies from the database
 
 If you're using this crate with access control, then you are already using diesel and casbin. Loading policies while the application is running is enabled by the [diesel-adapter](https://github.com/casbin-rs/diesel-adapter) crate. Its README explains how to set up the policies table and how to initialize the enforcer to use that table.
+
+# Input Validation
+
+Input from an HTTP endpoint cannot be trusted, and must be validated. 
+
+Add the `crud-validator` feature to the `rocket-crud` dependency declaration. The `Validate` trait is then derived for any `rocket_crud`-marked struct type. 
+
+    rocket-crud = { version = "0.1", features = ["crud-validator"] }
+
+Attributes like `#[validate(url)]` are also propagated to any derived structures that are made internally.
 
 ## Design discussion
 
