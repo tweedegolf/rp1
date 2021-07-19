@@ -60,3 +60,7 @@ Controller::update_row<T>(connection: C, index: T::Index, value: U))
 Controller::delete(connection: C, index: T::Index);
 ```
 
+
+# Access Control: Loading policies from the database
+
+If you're using this crate with access control, then you are already using diesel and casbin. Loading policies while the application is running is enabled by the [diesel-adapter](https://github.com/casbin-rs/diesel-adapter) crate. Its README explains how to set up the policies table and how to initialize the enforcer to use that table.
