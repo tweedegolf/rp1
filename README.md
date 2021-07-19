@@ -2,8 +2,6 @@
 
 # Access Control with Casbin
 
-See the `casbin-middleware` branch. This is ready to merge.
-
 We integrate with the [casbin](https://github.com/casbin/casbin-rs) library for access control.
 Add the `crud-casbin` feature to the `rocket-crud` dependency declaration. Casbin rules are then 
 checked on all routes by default.
@@ -94,6 +92,8 @@ If you're using this crate with access control, then you are already using diese
 # Input Validation
 
 Input from an HTTP endpoint cannot be trusted, and must be validated. 
+For instance, is the the email field actually a valid email address? 
+We integrate with the [validator](https://github.com/Keats/validator) crate to provide validation.
 
 Add the `crud-validator` feature to the `rocket-crud` dependency declaration. The `Validate` trait is then derived for any `rocket_crud`-marked struct type. 
 
