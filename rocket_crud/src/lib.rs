@@ -1,3 +1,4 @@
+#[cfg(feature = "crud-casbin")]
 pub mod access_control;
 
 pub use rocket_crud_macros::crud;

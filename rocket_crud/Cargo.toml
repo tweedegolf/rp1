@@ -6,7 +6,6 @@ name = "rocket-crud"
 version = "0.1.0"
 [dependencies]
 async-mutex = "1.4.0"
-casbin = "2.0.7"
 chrono = "0.4.19"
 either = "1.6.1"
 rocket = "0.5.0-rc.1"
@@ -16,6 +15,7 @@ thiserror = "1.0.25"
 
 # optional = true automatically creates feature flag "validator"
 validator = { version = "0.14.0", features = ["derive"], optional = true }
+casbin = { version = "2.0.7", optional = true }
 
 [dependencies.diesel]
 version = "1.4.6"
@@ -25,7 +25,8 @@ path = "../rocket_crud_macros/"
 
 
 [features]
-validate = [ "validator", "rocket-crud-macros/validator" ]
+crud-validator = [ "validator", "rocket-crud-macros/validator" ]
+crud-casbin = [ "casbin" ]
 
 [dev-dependencies]
 diesel_migrations = "1.4.0"

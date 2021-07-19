@@ -84,7 +84,7 @@ async fn init_rocket() -> Rocket<Build> {
         .mount("/users", User::get_routes())
         // .mount("/posts", Post::get_routes())
         // .mount("/comments", Comment::get_routes())
-        .attach(AlwaysAdminFairing)
+        .attach(RoleHeaderFairing)
         .attach(casbin_fairing)
         .attach(Db::fairing())
 }
@@ -130,10 +130,10 @@ async fn create_user_pass() {
     assert_eq!(response.status(), Status::Forbidden);
 }
 
-pub struct AlwaysAdminFairing;
+pub struct RoleHeaderFairing;
 
 #[rocket::async_trait]
-impl Fairing for AlwaysAdminFairing {
+impl Fairing for RoleHeaderFairing {
     fn info(&self) -> Info {
         Info {
             name: "AlwaysAdminFairing",

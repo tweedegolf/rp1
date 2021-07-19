@@ -106,8 +106,6 @@ impl Fairing for PermissionsFairing {
 
         let enforced_by = request.local_cache(EnforcedBy::default);
 
-        dbg!(&enforced_by);
-
         let status = match enforced_by {
             EnforcedBy::Subject(subject) => {
                 dbg!(&subject, &path, &action);
@@ -126,8 +124,6 @@ impl Fairing for PermissionsFairing {
             }
             EnforcedBy::ForbidAll => PermissionsGuard(Status::Forbidden),
         };
-
-        dbg!(&status);
 
         request.local_cache(|| status);
     }
