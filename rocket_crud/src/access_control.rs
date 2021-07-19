@@ -7,8 +7,6 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Status;
 use rocket::request::{self, FromRequest, Request};
 
-use async_mutex::Mutex;
-
 #[derive(Debug)]
 pub enum EnforcedBy {
     Subject(String),
@@ -54,7 +52,7 @@ impl<'r> FromRequest<'r> for NoPermissionsGuard {
     }
 }
 
-type PermissionsEnforcer = std::sync::Arc<Mutex<Enforcer>>;
+type PermissionsEnforcer = std::sync::Arc<Enforcer>;
 
 #[derive(Clone)]
 pub struct PermissionsFairing {
@@ -65,7 +63,7 @@ impl PermissionsFairing {
     pub async fn new<M: TryIntoModel, A: TryIntoAdapter>(m: M, a: A) -> CasbinResult<Self> {
         let enforcer: Enforcer = Enforcer::new(m, a).await?;
         Ok(PermissionsFairing {
-            enforcer: std::sync::Arc::new(Mutex::new(enforcer)),
+            enforcer: std::sync::Arc::new(enforcer),
         })
     }
 
@@ -82,15 +80,15 @@ async fn casbin_enforce(
     enforcer: PermissionsEnforcer,
     enforce_arcs: impl casbin::EnforceArgs,
 ) -> PermissionsGuard {
-    let mut mutex_guard = enforcer.lock().await;
-    let guard = mutex_guard.enforce_mut(enforce_arcs);
-    drop(mutex_guard);
+    let guard = enforcer.enforce(enforce_arcs);
 
-    PermissionsGuard(match guard {
+    let status = match guard {
         Ok(true) => Status::Ok,
         Ok(false) => Status::Forbidden,
         Err(_) => Status::BadGateway,
-    })
+    };
+
+    PermissionsGuard(status)
 }
 
 #[rocket::async_trait]
