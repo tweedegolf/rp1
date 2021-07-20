@@ -72,7 +72,7 @@ impl Fairing for AlwaysAdminFairing {
     }
 
     async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
-        request.local_cache(|| EnforcedBy::Subject("admin".into()));
+        request.local_cache(|| EnforcedBy::<String>::Subject("admin".into()));
     }
 }
 
@@ -87,7 +87,7 @@ async fn rocket() -> _ {
 
     let a = FileAdapter::new("src/bin/rbac_with_pattern_model.csv");
 
-    let casbin_fairing = match rocket_crud::access_control::PermissionsFairing::new(m, a).await {
+    let casbin_fairing = match rocket_crud::access_control::PermissionsFairing::<String>::new(m, a).await {
         Ok(f) => f,
         Err(e) => panic!("{:?}", e),
     };

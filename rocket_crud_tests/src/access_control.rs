@@ -13,25 +13,56 @@ use rocket_sync_db_pools::database;
 struct Db(diesel::PgConnection);
 
 #[rocket_crud::crud(database = "Db", table_name = "users")]
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    serde::Deserialize,
-    serde::Serialize,
-    diesel::Queryable,
-    validator::Validate,
-)]
+#[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
-    pub id: i32,
+    id: i32,
     #[validate(email)]
-    pub username: String,
+    username: String,
     #[generated]
-    pub created_at: chrono::NaiveDateTime,
+    created_at: chrono::NaiveDateTime,
     #[generated]
-    pub updated_at: chrono::NaiveDateTime,
+    updated_at: chrono::NaiveDateTime,
+}
+
+#[rocket_crud::crud(database = "Db", table_name = "posts")]
+#[derive(serde::Serialize, diesel::Queryable)]
+struct Post {
+    #[primary_key]
+    id: i32,
+    title: String,
+    subtitle: Option<String>,
+    content: String,
+    user_id: i32,
+    #[generated]
+    created_at: chrono::NaiveDateTime,
+    #[generated]
+    updated_at: chrono::NaiveDateTime,
+}
+
+#[rocket_crud::crud(database = "Db", table_name = "comments")]
+#[derive(serde::Serialize, diesel::Queryable)]
+struct Comment {
+    #[primary_key]
+    id: i32,
+    content: String,
+    #[serde(default)]
+    approved: bool,
+    post_id: i32,
+    #[not_sortable]
+    user_id: Option<i32>,
+    anonymous_user: Option<String>,
+    #[generated]
+    created_at: chrono::NaiveDateTime,
+    #[generated]
+    updated_at: chrono::NaiveDateTime,
+}
+
+
+#[derive(std::hash::Hash, serde::Serialize, Debug)]
+struct AuthUser {
+    id: i32,
+    role: String,
 }
 
 const MODEL: &str = "
@@ -39,24 +70,20 @@ const MODEL: &str = "
 r = sub, obj, act
 
 [policy_definition]
-p = sub, obj, act
-
-[role_definition]
-g = _, _
+p = sub_rule, obj, act
 
 [policy_effect]
 e = some(where (p.eft == allow))
 
 [matchers]
-m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
+m = eval(p.sub_rule) && r.obj == p.obj && r.act == p.act
 ";
 
-const POLICY: &str = "
-p, bob, /comments, GET
-p, admin, /users, GET
-
-g, bob, admin
-";
+const POLICY: &str = r#"
+p, r.sub.role == "admin", /users, POST
+p, r.sub.role == "poster" && r.sub.id == r.obj.user_id, /posts, POST
+p, r.sub.role == "commenter", /comments, POST
+"#;
 
 async fn init_rocket() -> Rocket<Build> {
     use casbin::{DefaultModel, FileAdapter};
@@ -75,16 +102,16 @@ async fn init_rocket() -> Rocket<Build> {
 
     let a = FileAdapter::new(path);
 
-    let casbin_fairing = match rocket_crud::access_control::PermissionsFairing::new(m, a).await {
+    let casbin_fairing = match rocket_crud::access_control::PermissionsFairing::<AuthUser>::new(m, a).await {
         Ok(f) => f,
         Err(e) => panic!("{:?}", e),
     };
 
     rocket::build()
         .mount("/users", User::get_routes())
-        // .mount("/posts", Post::get_routes())
-        // .mount("/comments", Comment::get_routes())
-        .attach(RoleHeaderFairing)
+        .mount("/posts", Post::get_routes())
+        .mount("/comments", Comment::get_routes())
+        .attach(UserIdFairing)
         .attach(casbin_fairing)
         .attach(Db::fairing())
 }
@@ -98,12 +125,13 @@ async fn create_user_fail() {
         .await
         .expect("valid rocket instance");
 
-    let role = Header::new("X-Plain-Text-Auth", "bob");
-
+    let id = Header::new("X-Auth-Id", "1");
+    let role = Header::new("X-Auth-Role", "not-admin");
     let response = client
-        .post("/users/")
-        .body(r#"{ "username" : "foobar" }"#)
+        .post("/users")
+        .body(r#"{ "username" : "foobar@example.com" }"#)
         .header(ContentType::JSON)
+        .header(id)
         .header(role)
         .dispatch()
         .await;
@@ -117,12 +145,43 @@ async fn create_user_pass() {
         .await
         .expect("valid rocket instance");
 
-    let role = Header::new("X-Plain-Text-Auth", "alice");
-
+    let id = Header::new("X-Auth-Id", "1");
+    let role = Header::new("X-Auth-Role", "admin");
     let response = client
-        .post("/users/")
-        .body(r#"{ "username" : "foobar" }"#)
+        .post("/users")
+        .body(r#"{ "username" : "foobar@example.com" }"#)
         .header(ContentType::JSON)
+        .header(id)
+        .header(role)
+        .dispatch()
+        .await;
+
+    assert_eq!(response.status(), Status::Ok);
+}
+
+#[tokio::test]
+async fn create_post_fail() {
+    let client = Client::tracked(init_rocket().await)
+        .await
+        .expect("valid rocket instance");
+
+    // create a user, s.t. we can use its ID
+    // let role_admin = Header::new("Authorization", "0");
+    // let _response = client
+    //     .post("/users")
+    //     .body(r#"{ "username" : "foobar@example.com" }"#)
+    //     .header(ContentType::JSON)
+    //     .header(role_admin)
+    //     .dispatch()
+    //     .await;
+
+    let id = Header::new("X-Auth-Id", "82");
+    let role = Header::new("X-Auth-Role", "poster");
+    let response = client
+        .post("/posts")
+        .body(r#"{ "title": "Bla", "content" : "Blablabla", "user_id": 81 }"#)
+        .header(ContentType::JSON)
+        .header(id)
         .header(role)
         .dispatch()
         .await;
@@ -130,20 +189,51 @@ async fn create_user_pass() {
     assert_eq!(response.status(), Status::Forbidden);
 }
 
-pub struct RoleHeaderFairing;
+#[tokio::test]
+async fn create_post_pass() {
+    let client = Client::tracked(init_rocket().await)
+        .await
+        .expect("valid rocket instance");
+
+    // create a user, s.t. we can use its ID
+    // let role_admin = Header::new("Authorization", "0");
+    // let _response = client
+    //     .post("/users")
+    //     .body(r#"{ "username" : "foobar@example.com" }"#)
+    //     .header(ContentType::JSON)
+    //     .header(role_admin)
+    //     .dispatch()
+    //     .await;
+
+    let id = Header::new("X-Auth-Id", "81");
+    let role = Header::new("X-Auth-Role", "poster");
+    let response = client
+        .post("/posts")
+        .body(r#"{ "title": "Bla", "content" : "Blablabla", "user_id": 81 }"#) // TODO make use of newly created user
+        .header(ContentType::JSON)
+        .header(id)
+        .header(role)
+        .dispatch()
+        .await;
+
+    assert_eq!(response.status(), Status::Ok);
+}
+
+pub struct UserIdFairing;
 
 #[rocket::async_trait]
-impl Fairing for RoleHeaderFairing {
+impl Fairing for UserIdFairing {
     fn info(&self) -> Info {
         Info {
-            name: "AlwaysAdminFairing",
+            name: "UserIdFairing",
             kind: Kind::Request | Kind::Response,
         }
     }
 
     async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
-        let role = request.headers().get_one("X-Plain-Text-Auth").unwrap();
+        let id = request.headers().get_one("X-Auth-Id").unwrap().parse::<i32>().unwrap();
+        let role = request.headers().get_one("X-Auth-Role").unwrap();
 
-        request.local_cache(|| EnforcedBy::Subject(role.into()));
+        request.local_cache(|| EnforcedBy::<AuthUser>::Subject(AuthUser { id, role: role.to_owned() }));
     }
 }

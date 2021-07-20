@@ -8,13 +8,13 @@ use rocket::http::Status;
 use rocket::request::{self, FromRequest, Request};
 
 #[derive(Debug)]
-pub enum EnforcedBy {
-    Subject(String),
-    SubjectAndDomain { subject: String, domain: String },
+pub enum EnforcedBy<T> {
+    Subject(T),
+    SubjectAndDomain { subject: T, domain: String },
     ForbidAll,
 }
 
-impl Default for EnforcedBy {
+impl<T> Default for EnforcedBy<T> {
     fn default() -> Self {
         EnforcedBy::ForbidAll
     }
@@ -29,7 +29,6 @@ impl<'r> FromRequest<'r> for PermissionsGuard {
 
     async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
         let status = request.local_cache(|| PermissionsGuard(Status::Forbidden));
-        dbg!(&status);
 
         match *status {
             PermissionsGuard(status) if status == Status::Ok => {
@@ -55,15 +54,17 @@ impl<'r> FromRequest<'r> for NoPermissionsGuard {
 type PermissionsEnforcer = std::sync::Arc<Enforcer>;
 
 #[derive(Clone)]
-pub struct PermissionsFairing {
+pub struct PermissionsFairing<T> {
     pub enforcer: PermissionsEnforcer,
+    pub marker: std::marker::PhantomData<T>,
 }
 
-impl PermissionsFairing {
+impl<T> PermissionsFairing<T> {
     pub async fn new<M: TryIntoModel, A: TryIntoAdapter>(m: M, a: A) -> CasbinResult<Self> {
         let enforcer: Enforcer = Enforcer::new(m, a).await?;
         Ok(PermissionsFairing {
             enforcer: std::sync::Arc::new(enforcer),
+            marker: std::marker::PhantomData,
         })
     }
 
@@ -71,8 +72,11 @@ impl PermissionsFairing {
         self.enforcer.clone()
     }
 
-    pub fn with_enforcer(e: PermissionsEnforcer) -> PermissionsFairing {
-        PermissionsFairing { enforcer: e }
+    pub fn with_enforcer(e: PermissionsEnforcer) -> Self {
+        PermissionsFairing {
+            enforcer: e,
+            marker: std::marker::PhantomData,
+        }
     }
 }
 
@@ -92,7 +96,10 @@ async fn casbin_enforce(
 }
 
 #[rocket::async_trait]
-impl Fairing for PermissionsFairing {
+impl<T> Fairing for PermissionsFairing<T>
+where
+    T: Send + Sync + std::hash::Hash + serde::Serialize + 'static + std::fmt::Debug,
+{
     fn info(&self) -> Info {
         Info {
             name: "PermissionsFairing",
@@ -101,24 +108,21 @@ impl Fairing for PermissionsFairing {
     }
 
     async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
-        let path = request.uri().path().to_string();
+        let path = request.uri().path().to_string(); // TODO this should be a struct that looks like: { path: ..., object: ... }
         let action = request.method().as_str().to_owned();
 
-        let enforced_by = request.local_cache(EnforcedBy::default);
+        let enforced_by: &EnforcedBy<T> = request.local_cache(EnforcedBy::default);
+        dbg!(enforced_by);
 
         let status = match enforced_by {
             EnforcedBy::Subject(subject) => {
-                dbg!(&subject, &path, &action);
-                casbin_enforce(
-                    self.enforcer.clone(),
-                    vec![subject.to_owned(), path, action],
-                )
-                .await
+                dbg!(subject);
+                casbin_enforce(self.enforcer.clone(), (subject.to_owned(), path, action)).await
             }
             EnforcedBy::SubjectAndDomain { subject, domain } => {
                 casbin_enforce(
                     self.enforcer.clone(),
-                    vec![subject.to_owned(), domain.to_owned(), path, action],
+                    (subject.to_owned(), domain.to_owned(), path, action),
                 )
                 .await
             }
