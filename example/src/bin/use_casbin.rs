@@ -87,10 +87,11 @@ async fn rocket() -> _ {
 
     let a = FileAdapter::new("src/bin/rbac_with_pattern_model.csv");
 
-    let casbin_fairing = match rocket_crud::access_control::PermissionsFairing::<String>::new(m, a).await {
-        Ok(f) => f,
-        Err(e) => panic!("{:?}", e),
-    };
+    let casbin_fairing =
+        match rocket_crud::access_control::PermissionsFairing::<String>::new(m, a).await {
+            Ok(f) => f,
+            Err(e) => panic!("{:?}", e),
+        };
 
     rocket::build()
         .attach(AlwaysAdminFairing)

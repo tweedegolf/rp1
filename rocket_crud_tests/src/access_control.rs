@@ -58,7 +58,6 @@ struct Comment {
     updated_at: chrono::NaiveDateTime,
 }
 
-
 #[derive(std::hash::Hash, serde::Serialize, Debug)]
 struct AuthUser {
     id: i32,
@@ -81,7 +80,7 @@ m = eval(p.sub_rule) && r.obj == p.obj && r.act == p.act
 
 const POLICY: &str = r#"
 p, r.sub.role == "admin", /users, POST
-p, r.sub.role == "poster" && r.sub.id == r.obj.user_id, /posts, POST
+p, r.sub.role == "poster", /posts, POST
 p, r.sub.role == "commenter", /comments, POST
 "#;
 
@@ -102,10 +101,11 @@ async fn init_rocket() -> Rocket<Build> {
 
     let a = FileAdapter::new(path);
 
-    let casbin_fairing = match rocket_crud::access_control::PermissionsFairing::<AuthUser>::new(m, a).await {
-        Ok(f) => f,
-        Err(e) => panic!("{:?}", e),
-    };
+    let casbin_fairing =
+        match rocket_crud::access_control::PermissionsFairing::<AuthUser>::new(m, a).await {
+            Ok(f) => f,
+            Err(e) => panic!("{:?}", e),
+        };
 
     rocket::build()
         .mount("/users", User::get_routes())
@@ -165,18 +165,8 @@ async fn create_post_fail() {
         .await
         .expect("valid rocket instance");
 
-    // create a user, s.t. we can use its ID
-    // let role_admin = Header::new("Authorization", "0");
-    // let _response = client
-    //     .post("/users")
-    //     .body(r#"{ "username" : "foobar@example.com" }"#)
-    //     .header(ContentType::JSON)
-    //     .header(role_admin)
-    //     .dispatch()
-    //     .await;
-
     let id = Header::new("X-Auth-Id", "82");
-    let role = Header::new("X-Auth-Role", "poster");
+    let role = Header::new("X-Auth-Role", "not-poster");
     let response = client
         .post("/posts")
         .body(r#"{ "title": "Bla", "content" : "Blablabla", "user_id": 81 }"#)
@@ -195,21 +185,11 @@ async fn create_post_pass() {
         .await
         .expect("valid rocket instance");
 
-    // create a user, s.t. we can use its ID
-    // let role_admin = Header::new("Authorization", "0");
-    // let _response = client
-    //     .post("/users")
-    //     .body(r#"{ "username" : "foobar@example.com" }"#)
-    //     .header(ContentType::JSON)
-    //     .header(role_admin)
-    //     .dispatch()
-    //     .await;
-
     let id = Header::new("X-Auth-Id", "81");
     let role = Header::new("X-Auth-Role", "poster");
     let response = client
         .post("/posts")
-        .body(r#"{ "title": "Bla", "content" : "Blablabla", "user_id": 81 }"#) // TODO make use of newly created user
+        .body(r#"{ "title": "Bla", "content" : "Blablabla", "user_id": 81 }"#)
         .header(ContentType::JSON)
         .header(id)
         .header(role)
@@ -231,9 +211,19 @@ impl Fairing for UserIdFairing {
     }
 
     async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
-        let id = request.headers().get_one("X-Auth-Id").unwrap().parse::<i32>().unwrap();
+        let id = request
+            .headers()
+            .get_one("X-Auth-Id")
+            .unwrap()
+            .parse::<i32>()
+            .unwrap();
         let role = request.headers().get_one("X-Auth-Role").unwrap();
 
-        request.local_cache(|| EnforcedBy::<AuthUser>::Subject(AuthUser { id, role: role.to_owned() }));
+        request.local_cache(|| {
+            EnforcedBy::<AuthUser>::Subject(AuthUser {
+                id,
+                role: role.to_owned(),
+            })
+        });
     }
 }
