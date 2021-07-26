@@ -64,3 +64,39 @@ fn rocket() -> _ {
         .mount("/comments", Comment::get_routes())
         .attach(Db::fairing())
 }
+
+enum AuthUser {
+    LoggedIn(User),
+    Anonymous,
+}
+
+use rocket::request::{FromRequest, Outcome, Request};
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for AuthUser {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        use diesel::prelude::*;
+
+        match req.headers().get_one("X-UNSAFE-USER-ID") {
+            Some(user_id_str) => {
+                let db = <Db as FromRequest>::from_request(req).await.unwrap();
+
+                let user_id: i32 = user_id_str.parse().unwrap();
+
+                let user: User = db
+                    .run(move |conn| {
+                        schema::users::table
+                            .find(user_id)
+                            .first::<User>(conn)
+                            .unwrap()
+                    })
+                    .await;
+
+                Outcome::Success(AuthUser::LoggedIn(user))
+            }
+            None => Outcome::Success(AuthUser::Anonymous),
+        }
+    }
+}

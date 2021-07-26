@@ -7,6 +7,36 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Status;
 use rocket::request::{self, FromRequest, Request};
 
+use diesel::prelude::Expression;
+use diesel::sql_types::Bool;
+
+pub enum Allow {
+    Always,
+    Never,
+    Filter(Box<dyn Expression<SqlType = Bool>>),
+    Check(bool),
+}
+
+trait CheckPermissions {
+    type AuthUser;
+
+    fn check_read(_: &Self::AuthUser) -> Allow {
+        Allow::Always
+    }
+
+    fn check_create(&self, _: &Self::AuthUser) -> bool {
+        true
+    }
+
+    fn check_update(_: &Self::AuthUser) -> Allow {
+        Allow::Always
+    }
+
+    fn check_delete(_: &Self::AuthUser) -> Allow {
+        Allow::Always
+    }
+}
+
 #[derive(Debug)]
 pub enum EnforcedBy<T> {
     Subject(T),
