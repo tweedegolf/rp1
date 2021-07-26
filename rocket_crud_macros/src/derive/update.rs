@@ -12,7 +12,6 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         schema_path,
         table_name,
         primary_type,
-        permissions_guard,
         ..
     } = props;
 
@@ -56,7 +55,6 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         #[::rocket::patch("/<id>", format = "json", data = "<value>")]
         async fn update_fn_json(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
             id: #primary_type,
             value: ::rocket::serde::json::Json<#update_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
@@ -68,7 +66,6 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         #[::rocket::patch("/form/<id>", data = "<value>")]
         async fn update_fn_form(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
             id: #primary_type,
             value: ::rocket::form::Form<#update_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>

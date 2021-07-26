@@ -10,7 +10,6 @@ pub(crate) fn derive_crud_delete(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         table_name,
         schema_path,
         primary_type,
-        permissions_guard,
         ..
     } = props;
 
@@ -18,7 +17,6 @@ pub(crate) fn derive_crud_delete(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         #[::rocket::delete("/<id>")]
         async fn delete_fn(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
             id: #primary_type,
         ) -> ::rocket_crud::RocketCrudResponse<usize>
         {

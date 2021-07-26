@@ -10,7 +10,6 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         ident,
         schema_path,
         table_name,
-        permissions_guard,
         filter_ident,
         ..
     } = props;
@@ -217,7 +216,6 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         #[::rocket::get("/?<sort>&<offset>&<limit>&<filter>")]
         async fn list_fn(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
             sort: Vec<::rocket_crud::SortSpec<SortableFields>>,
             filter: #filter_ident,
             offset: Option<i64>,

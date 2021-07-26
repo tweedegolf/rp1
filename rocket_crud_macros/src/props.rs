@@ -14,11 +14,6 @@ fn enabled() -> bool {
     true
 }
 
-/// Helper for deserializing macro props when the default is false
-fn disabled() -> bool {
-    false
-}
-
 // taken from https://github.com/diesel-rs/diesel/blob/master/diesel_derives/src/util.rs#L28
 fn is_option_ty(ty: &Type) -> bool {
     option_ty_arg(ty).is_some()
@@ -172,8 +167,6 @@ pub struct CrudPropsBuilder {
     delete: bool,
     #[darling(default = "enabled")]
     list: bool,
-    #[darling(default = "disabled")]
-    ignore_casbin: bool,
     #[darling(default, rename = "module")]
     module_name: Option<Ident>,
     #[darling(skip)] // TODO: allow specifying the identifier for the new struct
@@ -186,8 +179,6 @@ pub struct CrudPropsBuilder {
     table_name: Option<Ident>,
     #[darling(default)]
     max_limit: Option<i64>,
-    #[darling(default)]
-    enable_casbin_rbac: bool,
 }
 
 impl CrudPropsBuilder {
@@ -215,20 +206,6 @@ impl CrudPropsBuilder {
             pub_token: syn::Token!(pub)([proc_macro2::Span::call_site()]),
         });
 
-        // if the `casbin` feature flag is on, we can still override the option
-        // to not do authorization on a particular struct
-        let use_casbin = if cfg!(feature = "casbin") {
-            true
-        } else {
-            !self.ignore_casbin
-        };
-
-        let permissions_guard = if use_casbin {
-            quote!(::rocket_crud::access_control::PermissionsGuard)
-        } else {
-            quote!(::rocket_crud::access_control::NoPermissionsGuard)
-        };
-
         Ok(CrudProps {
             database_struct: self.database_struct,
             schema_path: self
@@ -252,15 +229,12 @@ impl CrudPropsBuilder {
             list: self.list,
             update: self.update,
             delete: self.delete,
-            use_casbin,
             table_name: self
                 .table_name
                 .unwrap_or_else(|| format_ident!("{}", to_snake_case(&item.ident.to_string()))),
             max_limit: self.max_limit.unwrap_or(100),
-            enable_casbin_rbac: self.enable_casbin_rbac,
             primary_type,
             original_visibility,
-            permissions_guard,
             fields,
             item,
         })
@@ -278,7 +252,6 @@ pub struct CrudProps {
     pub(crate) update: bool,
     pub(crate) delete: bool,
     pub(crate) list: bool,
-    pub(crate) use_casbin: bool,
     pub(crate) module_name: Ident,
     pub(crate) ident: Ident,
     pub(crate) new_ident: Ident,
@@ -287,9 +260,7 @@ pub struct CrudProps {
     pub(crate) table_name: Ident,
     pub(crate) primary_type: Type,
     pub(crate) max_limit: i64,
-    pub(crate) enable_casbin_rbac: bool,
     pub(crate) original_visibility: Visibility,
-    pub(crate) permissions_guard: TokenStream,
     pub(crate) fields: Vec<CrudField>,
 }
 

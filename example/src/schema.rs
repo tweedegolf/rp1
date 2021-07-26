@@ -27,6 +27,7 @@ table! {
     users (id) {
         id -> Int4,
         username -> Varchar,
+        role -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

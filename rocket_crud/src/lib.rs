@@ -18,7 +18,6 @@ mod sort;
 
 pub mod helper;
 
-#[cfg(feature = "crud-casbin")]
 pub mod access_control;
 
 use ::rocket::serde::json::{Json, Value};

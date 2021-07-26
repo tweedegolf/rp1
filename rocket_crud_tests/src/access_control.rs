@@ -5,7 +5,6 @@ use rocket::http::Header;
 use rocket::request::Request;
 use rocket::Build;
 use rocket::Rocket;
-use rocket_crud::access_control::EnforcedBy;
 
 use rocket_sync_db_pools::database;
 
@@ -64,55 +63,11 @@ struct AuthUser {
     role: String,
 }
 
-const MODEL: &str = "
-[request_definition]
-r = sub, obj, act
-
-[policy_definition]
-p = sub_rule, obj, act
-
-[policy_effect]
-e = some(where (p.eft == allow))
-
-[matchers]
-m = eval(p.sub_rule) && r.obj == p.obj && r.act == p.act
-";
-
-const POLICY: &str = r#"
-p, r.sub.role == "admin", /users, POST
-p, r.sub.role == "poster", /posts, POST
-p, r.sub.role == "commenter", /comments, POST
-"#;
-
 async fn init_rocket() -> Rocket<Build> {
-    use casbin::{DefaultModel, FileAdapter};
-    use tempfile::NamedTempFile;
-
-    let m = match DefaultModel::from_str(MODEL).await {
-        Ok(m) => m,
-        Err(e) => panic!("{:?}", e),
-    };
-
-    let mut file = NamedTempFile::new().unwrap();
-    use std::io::Write;
-    write!(file, "{}", POLICY).unwrap();
-
-    let path = file.path().to_owned();
-
-    let a = FileAdapter::new(path);
-
-    let casbin_fairing =
-        match rocket_crud::access_control::PermissionsFairing::<AuthUser>::new(m, a).await {
-            Ok(f) => f,
-            Err(e) => panic!("{:?}", e),
-        };
-
     rocket::build()
         .mount("/users", User::get_routes())
         .mount("/posts", Post::get_routes())
         .mount("/comments", Comment::get_routes())
-        .attach(UserIdFairing)
-        .attach(casbin_fairing)
         .attach(Db::fairing())
 }
 
@@ -199,31 +154,32 @@ async fn create_post_pass() {
     assert_eq!(response.status(), Status::Ok);
 }
 
-pub struct UserIdFairing;
 
 #[rocket::async_trait]
-impl Fairing for UserIdFairing {
-    fn info(&self) -> Info {
-        Info {
-            name: "UserIdFairing",
-            kind: Kind::Request | Kind::Response,
+impl<'r> FromRequest<'r> for AUser {
+    type Error = std::convert::Infallible;
+
+    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        use diesel::prelude::*;
+
+        match req.headers().get_one("X-UNSAFE-USER-ID") {
+            Some(user_id_str) => {
+                let db = <Db as FromRequest>::from_request(req).await.unwrap();
+
+                let user_id: i32 = user_id_str.parse().unwrap();
+
+                let user: User = db
+                    .run(move |conn| {
+                        schema::users::table
+                            .find(user_id)
+                            .first::<User>(conn)
+                            .unwrap()
+                    })
+                    .await;
+
+                Outcome::Success(AUser::LoggedIn(user))
+            }
+            None => Outcome::Success(AUser::Anonymous),
         }
-    }
-
-    async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
-        let id = request
-            .headers()
-            .get_one("X-Auth-Id")
-            .unwrap()
-            .parse::<i32>()
-            .unwrap();
-        let role = request.headers().get_one("X-Auth-Role").unwrap();
-
-        request.local_cache(|| {
-            EnforcedBy::<AuthUser>::Subject(AuthUser {
-                id,
-                role: role.to_owned(),
-            })
-        });
     }
 }

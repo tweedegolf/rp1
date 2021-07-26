@@ -11,7 +11,6 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         ident,
         table_name,
         schema_path,
-        permissions_guard,
         ..
     } = props;
 
@@ -54,7 +53,6 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         #[::rocket::post("/", format = "json", data = "<value>")]
         async fn create_fn_json(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
             value: ::rocket::serde::json::Json<#new_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {
@@ -65,7 +63,6 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         #[::rocket::post("/form", data = "<value>")]
         async fn create_fn_form(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
             value: ::rocket::form::Form<#new_ident>
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
         {

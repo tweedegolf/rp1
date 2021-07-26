@@ -19,6 +19,7 @@ impl CheckPermissions for self::user::User {
 impl CheckPermissions for Post {
     type AuthUser = AUser;
 }
+
 impl CheckPermissions for Comment {
     type AuthUser = AUser;
 }
@@ -26,20 +27,21 @@ impl CheckPermissions for Comment {
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud(database = "Db", table_name = "users", ignore_casbin = true)]
+#[rocket_crud::crud(database = "Db", table_name = "users")]
 #[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
     id: i32,
     #[validate(email)]
     username: String,
+    role: String,
     #[generated]
     created_at: chrono::NaiveDateTime,
     #[generated]
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "posts", ignore_casbin = true)]
+#[rocket_crud::crud(database = "Db", table_name = "posts")]
 #[derive(serde::Serialize, diesel::Queryable)]
 struct Post {
     #[primary_key]
@@ -54,7 +56,7 @@ struct Post {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "comments", ignore_casbin = true)]
+#[rocket_crud::crud(database = "Db", table_name = "comments")]
 #[derive(serde::Serialize, diesel::Queryable)]
 struct Comment {
     #[primary_key]
@@ -93,10 +95,6 @@ async fn read_fn(
     use ::rocket_crud::helper::{db_error_to_response, ok_to_response};
 
     let auth_user = AUser::Anonymous;
-
-    //    let db_result = db
-    //        .run(move |conn| schema::users::table.find(id).first::<User>(conn))
-    //        .await;
 
     let db_result = db
         .run(move |conn| schema::users::table.find(id).first::<User>(conn))
