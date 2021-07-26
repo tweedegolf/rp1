@@ -180,6 +180,8 @@ pub struct CrudPropsBuilder {
     new_ident: Option<Ident>,
     #[darling(skip)] // TODO: allow specifying the identifier for the update struct
     update_ident: Option<Ident>,
+    #[darling(skip)] // TODO: allow specifying the identifier for the filter struct
+    filter_ident: Option<Ident>,
     #[darling(default)]
     table_name: Option<Ident>,
     #[darling(default)]
@@ -235,10 +237,13 @@ impl CrudPropsBuilder {
             ident: item.ident.clone(),
             new_ident: self
                 .new_ident
-                .unwrap_or_else(|| quote::format_ident!("New{}", &item.ident)),
+                .unwrap_or_else(|| format_ident!("New{}", &item.ident)),
             update_ident: self
                 .update_ident
-                .unwrap_or_else(|| quote::format_ident!("Update{}", &item.ident)),
+                .unwrap_or_else(|| format_ident!("Update{}", &item.ident)),
+            filter_ident: self
+                .filter_ident
+                .unwrap_or_else(|| format_ident!("{}FilterSpec", &item.ident)),
             module_name: self.module_name.unwrap_or_else(|| {
                 Ident::new(&to_snake_case(&item.ident.to_string()), Span::call_site())
             }),
@@ -278,6 +283,7 @@ pub struct CrudProps {
     pub(crate) ident: Ident,
     pub(crate) new_ident: Ident,
     pub(crate) update_ident: Ident,
+    pub(crate) filter_ident: Ident,
     pub(crate) table_name: Ident,
     pub(crate) primary_type: Type,
     pub(crate) max_limit: i64,

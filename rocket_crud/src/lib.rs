@@ -38,6 +38,10 @@ pub trait CrudInsertableMarker {}
 /// All generated structs that are used for updating implement this marker trait.
 pub trait CrudUpdatableMarker {}
 
+/// All generated filter spec structs that are used for filtering based on the
+/// url implement this marker trait.
+pub trait CrudFilterSpecMarker {}
+
 /// Rocket Crud responses always return a HTTP status code, and then either add
 /// a json value to that or a to-be-json encoded struct.
 pub type RocketCrudResponse<T> = (Status, Either<Json<T>, Value>);

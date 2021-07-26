@@ -11,6 +11,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         schema_path,
         table_name,
         permissions_guard,
+        filter_ident,
         ..
     } = props;
 
@@ -46,8 +47,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         .iter()
         .map(|f| {
             let field_name = f.ident.clone();
-            // parse is not implemented for Option<T>, so we add a special case
-            // for it
+            // parse is not implemented for Option<T>, so we add a special case for it
             if f.is_option {
                 quote! {
                     stringify!(#field_name) => {
@@ -104,7 +104,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         #[doc(hidden)]
         #[allow(non_camel_case_types)]
         #[derive(::rocket::FromFormField, Debug)]
-        enum SortableFields {
+        pub enum SortableFields {
             #(#sortable_field_names),*
         }
 
@@ -119,20 +119,23 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         use ::rocket::request::{self, Request, FromRequest};
 
         #[derive(Debug)]
-        struct FilterSpec {
+        pub struct #filter_ident {
             #(#filter_fields),*
         }
 
-        impl Default for FilterSpec {
-            fn default() -> FilterSpec {
-                FilterSpec {
+        impl ::rocket_crud::CrudFilterSpecMarker for #filter_ident {}
+
+        impl Default for #filter_ident {
+            fn default() -> #filter_ident {
+                #filter_ident {
                     #(#filter_field_names: vec![]),*
                 }
             }
         }
 
-        struct FilterSpecContext<'r> {
-            spec: FilterSpec,
+        #[doc(hidden)]
+        pub struct FilterSpecContext<'r> {
+            spec: #filter_ident,
             errors: ::rocket::form::Errors<'r>,
         }
 
@@ -160,7 +163,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         }
 
         #[rocket::async_trait]
-        impl<'r> ::rocket::form::FromForm<'r> for FilterSpec {
+        impl<'r> ::rocket::form::FromForm<'r> for #filter_ident {
             type Context = FilterSpecContext<'r>;
 
             fn init(opts: ::rocket::form::Options) -> Self::Context {
@@ -216,7 +219,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             db: #database_struct,
             _permissions_guard: #permissions_guard,
             sort: Vec<::rocket_crud::SortSpec<SortableFields>>,
-            filter: FilterSpec,
+            filter: #filter_ident,
             offset: Option<i64>,
             limit: Option<i64>,
         ) -> ::rocket_crud::RocketCrudResponse<Vec<#ident>>
