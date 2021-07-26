@@ -108,15 +108,12 @@ where
     }
 
     async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
-        let path = request.uri().path().to_string(); // TODO this should be a struct that looks like: { path: ..., object: ... }
+        let path = request.uri().path().to_string();
         let action = request.method().as_str().to_owned();
-
         let enforced_by: &EnforcedBy<T> = request.local_cache(EnforcedBy::default);
-        dbg!(enforced_by);
 
         let status = match enforced_by {
             EnforcedBy::Subject(subject) => {
-                dbg!(subject);
                 casbin_enforce(self.enforcer.clone(), (subject.to_owned(), path, action)).await
             }
             EnforcedBy::SubjectAndDomain { subject, domain } => {

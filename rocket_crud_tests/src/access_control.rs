@@ -81,7 +81,7 @@ m = eval(p.sub_rule) && r.obj == p.obj && r.act == p.act
 
 const POLICY: &str = r#"
 p, r.sub.role == "admin", /users, POST
-p, r.sub.role == "poster" && r.sub.id == r.obj.user_id, /posts, POST
+p, r.sub.role == "poster", /posts, POST
 p, r.sub.role == "commenter", /comments, POST
 "#;
 
@@ -165,18 +165,8 @@ async fn create_post_fail() {
         .await
         .expect("valid rocket instance");
 
-    // create a user, s.t. we can use its ID
-    // let role_admin = Header::new("Authorization", "0");
-    // let _response = client
-    //     .post("/users")
-    //     .body(r#"{ "username" : "foobar@example.com" }"#)
-    //     .header(ContentType::JSON)
-    //     .header(role_admin)
-    //     .dispatch()
-    //     .await;
-
     let id = Header::new("X-Auth-Id", "82");
-    let role = Header::new("X-Auth-Role", "poster");
+    let role = Header::new("X-Auth-Role", "not-poster");
     let response = client
         .post("/posts")
         .body(r#"{ "title": "Bla", "content" : "Blablabla", "user_id": 81 }"#)
@@ -195,21 +185,11 @@ async fn create_post_pass() {
         .await
         .expect("valid rocket instance");
 
-    // create a user, s.t. we can use its ID
-    // let role_admin = Header::new("Authorization", "0");
-    // let _response = client
-    //     .post("/users")
-    //     .body(r#"{ "username" : "foobar@example.com" }"#)
-    //     .header(ContentType::JSON)
-    //     .header(role_admin)
-    //     .dispatch()
-    //     .await;
-
     let id = Header::new("X-Auth-Id", "81");
     let role = Header::new("X-Auth-Role", "poster");
     let response = client
         .post("/posts")
-        .body(r#"{ "title": "Bla", "content" : "Blablabla", "user_id": 81 }"#) // TODO make use of newly created user
+        .body(r#"{ "title": "Bla", "content" : "Blablabla", "user_id": 81 }"#)
         .header(ContentType::JSON)
         .header(id)
         .header(role)
