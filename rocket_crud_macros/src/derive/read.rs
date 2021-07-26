@@ -20,7 +20,7 @@ pub(crate) fn derive_crud_read(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         #[::rocket::get("/<id>")]
         async fn read_fn(
             db: #database_struct,
-             // auth_user: <#ident as ::rocket_crud::access_control::CheckPermissions>::AuthUser,
+            auth_user: <#ident as ::rocket_crud::access_control::CheckPermissions>::AuthUser,
             _permissions_guard: #permissions_guard,
             id: #primary_type,
         ) -> ::rocket_crud::RocketCrudResponse<#ident>
@@ -41,14 +41,13 @@ pub(crate) fn derive_crud_read(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             match db_result {
                 Err(e) => db_error_to_response(e),
                 Ok(user) => {
-                        ok_to_response(user)
-                            /*
+
                     if <#ident as CheckPermissions>::allow_read(&user, &auth_user) {
                         ok_to_response(user)
                     } else {
                         panic!()
                     }
-                    */
+
                 }
             }
         }
