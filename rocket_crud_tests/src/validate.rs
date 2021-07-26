@@ -7,7 +7,7 @@ use rocket_sync_db_pools::database;
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud(database = "Db", table_name = "users")]
+#[rocket_crud::crud(database = "Db", table_name = "users", ignore_casbin = true)]
 #[derive(
     Debug,
     Clone,
