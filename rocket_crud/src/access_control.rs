@@ -10,30 +10,33 @@ use rocket::request::{self, FromRequest, Request};
 use diesel::prelude::Expression;
 use diesel::sql_types::Bool;
 
-pub enum Allow {
-    Always,
-    Never,
+pub enum ReadListFilter {
     Filter(Box<dyn Expression<SqlType = Bool>>),
-    Check(bool),
+    Allow,
+    Disallow,
 }
 
-trait CheckPermissions {
+pub trait CheckPermissions {
     type AuthUser;
 
-    fn check_read(_: &Self::AuthUser) -> Allow {
-        Allow::Always
-    }
-
-    fn check_create(&self, _: &Self::AuthUser) -> bool {
+    fn allow_read(&self, _: &Self::AuthUser) -> bool {
         true
     }
 
-    fn check_update(_: &Self::AuthUser) -> Allow {
-        Allow::Always
+    fn allow_read_list(_: &Self::AuthUser) -> ReadListFilter {
+        ReadListFilter::Allow
     }
 
-    fn check_delete(_: &Self::AuthUser) -> Allow {
-        Allow::Always
+    fn allow_create(&self, _: &Self::AuthUser) -> bool {
+        true
+    }
+
+    fn allow_update(&self, _new: &Self, _: &Self::AuthUser) -> bool {
+        true
+    }
+
+    fn allow_delete(&self, _: &Self::AuthUser) -> bool {
+        true
     }
 }
 

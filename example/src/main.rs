@@ -5,7 +5,23 @@ extern crate rocket;
 
 mod schema;
 
+use rocket_crud::access_control::CheckPermissions;
 use rocket_sync_db_pools::database;
+
+fn baz(u: User) -> <User as CheckPermissions>::AuthUser {
+    AUser::Anonymous
+}
+
+impl CheckPermissions for self::user::User {
+    type AuthUser = AUser;
+}
+
+impl CheckPermissions for Post {
+    type AuthUser = AUser;
+}
+impl CheckPermissions for Comment {
+    type AuthUser = AUser;
+}
 
 #[database("diesel")]
 struct Db(diesel::PgConnection);
@@ -65,15 +81,51 @@ fn rocket() -> _ {
         .attach(Db::fairing())
 }
 
-enum AuthUser {
+#[::rocket::get("/foo/<id>")]
+async fn read_fn(
+    db: Db,
+    // auth_user: <#ident as ::rocket_crud::access_control::CheckPermissions>::AuthUser,
+    id: i32,
+) -> ::rocket_crud::RocketCrudResponse<User> {
+    use ::diesel::prelude::*;
+
+    use ::rocket_crud::access_control::CheckPermissions;
+    use ::rocket_crud::helper::{db_error_to_response, ok_to_response};
+
+    let auth_user = AUser::Anonymous;
+
+    //    let db_result = db
+    //        .run(move |conn| schema::users::table.find(id).first::<User>(conn))
+    //        .await;
+
+    let db_result = db
+        .run(move |conn| schema::users::table.find(id).first::<User>(conn))
+        .await;
+
+    match db_result {
+        Err(e) => db_error_to_response(e),
+        Ok(user) => {
+            if <User as CheckPermissions>::allow_read(&user, &auth_user) {
+                ok_to_response(user)
+            } else {
+                panic!()
+            }
+        }
+    }
+}
+
+pub enum AUser {
     LoggedIn(User),
     Anonymous,
 }
 
-use rocket::request::{FromRequest, Outcome, Request};
+use rocket::{
+    http::uri::Authority,
+    request::{FromRequest, Outcome, Request},
+};
 
 #[rocket::async_trait]
-impl<'r> FromRequest<'r> for AuthUser {
+impl<'r> FromRequest<'r> for AUser {
     type Error = std::convert::Infallible;
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
@@ -94,9 +146,9 @@ impl<'r> FromRequest<'r> for AuthUser {
                     })
                     .await;
 
-                Outcome::Success(AuthUser::LoggedIn(user))
+                Outcome::Success(AUser::LoggedIn(user))
             }
-            None => Outcome::Success(AuthUser::Anonymous),
+            None => Outcome::Success(AUser::Anonymous),
         }
     }
 }
