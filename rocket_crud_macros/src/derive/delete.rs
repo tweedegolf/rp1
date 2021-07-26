@@ -1,11 +1,10 @@
 use proc_macro2::TokenStream;
-use syn::Ident;
 use quote::{format_ident, quote};
+use syn::Ident;
 
 use crate::props::CrudProps;
 
 pub(crate) fn derive_crud_delete(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
-
     let CrudProps {
         database_struct,
         table_name,

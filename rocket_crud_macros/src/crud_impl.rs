@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
-use syn::{AttributeArgs, ItemStruct};
 use quote::quote;
+use syn::{AttributeArgs, ItemStruct};
 
 use crate::props::{CrudProps, CrudPropsBuilder};
 
@@ -53,7 +53,9 @@ pub fn crud_impl(args: AttributeArgs, item: TokenStream) -> crate::Result {
         ..
     } = props;
 
-    let ItemStruct { attrs, generics, .. } = props.item;
+    let ItemStruct {
+        attrs, generics, ..
+    } = props.item;
 
     let tokens = quote! {
 

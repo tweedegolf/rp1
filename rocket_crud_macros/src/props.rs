@@ -3,8 +3,11 @@ use std::convert::{TryFrom, TryInto};
 use crate::{Error, Result};
 use inflector::cases::snakecase::to_snake_case;
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, format_ident, ToTokens, TokenStreamExt};
-use syn::{AttrStyle, Attribute, Field, GenericArgument, Ident, ItemStruct, Path, Token, Type, Visibility, token::Bracket};
+use quote::{format_ident, quote, ToTokens, TokenStreamExt};
+use syn::{
+    token::Bracket, AttrStyle, Attribute, Field, GenericArgument, Ident, ItemStruct, Path, Token,
+    Type, Visibility,
+};
 
 /// Helper for deserializing macro props when the default is true
 fn enabled() -> bool {
@@ -40,7 +43,6 @@ fn option_ty_arg(ty: &Type) -> Option<&Type> {
         _ => None,
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct CrudField {
@@ -79,7 +81,13 @@ impl CrudField {
 
 impl ToTokens for CrudField {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let CrudField { attrs, ident, ty, vis, .. } = self;
+        let CrudField {
+            attrs,
+            ident,
+            ty,
+            vis,
+            ..
+        } = self;
         tokens.append_all(quote! {
             #(#attrs)*
             #vis #ident: #ty
@@ -91,7 +99,10 @@ impl TryFrom<&Field> for CrudField {
     type Error = Error;
 
     fn try_from(value: &Field) -> Result<Self> {
-        let ident = value.ident.clone().ok_or(Error::UnnamedFieldsNotSupported)?;
+        let ident = value
+            .ident
+            .clone()
+            .ok_or(Error::UnnamedFieldsNotSupported)?;
         let mut is_generated = false;
         let mut is_primary_key = false;
         let mut is_sortable = true;
@@ -114,12 +125,17 @@ impl TryFrom<&Field> for CrudField {
             }
         }
 
-        let attrs = value.attrs.iter().filter(|a| {
-            !a.path.is_ident("generated") &&
-            !a.path.is_ident("primary_key") &&
-            !a.path.is_ident("not_sortable") &&
-            !a.path.is_ident("not_filterable")
-        }).cloned().collect();
+        let attrs = value
+            .attrs
+            .iter()
+            .filter(|a| {
+                !a.path.is_ident("generated")
+                    && !a.path.is_ident("primary_key")
+                    && !a.path.is_ident("not_sortable")
+                    && !a.path.is_ident("not_filterable")
+            })
+            .cloned()
+            .collect();
 
         let is_option = is_option_ty(&value.ty);
 
@@ -136,7 +152,6 @@ impl TryFrom<&Field> for CrudField {
         })
     }
 }
-
 
 /// This struct is a deserialization of all properties that the macro accepts.
 ///
@@ -175,8 +190,16 @@ pub struct CrudPropsBuilder {
 
 impl CrudPropsBuilder {
     pub fn build(self, mut item: ItemStruct) -> Result<CrudProps> {
-        let fields = item.fields.iter().map(|f| f.try_into()).collect::<Result<Vec<_>>>()?;
-        let primary_type = fields.iter().filter(|f: &&CrudField| f.is_primary_key).map(|f| f.ty.clone()).collect::<Vec<_>>();
+        let fields = item
+            .fields
+            .iter()
+            .map(|f| f.try_into())
+            .collect::<Result<Vec<_>>>()?;
+        let primary_type = fields
+            .iter()
+            .filter(|f: &&CrudField| f.is_primary_key)
+            .map(|f| f.ty.clone())
+            .collect::<Vec<_>>();
         if primary_type.len() == 0 {
             return Err(Error::MissingPrimaryKey);
         } else if primary_type.len() > 1 {
@@ -265,19 +288,23 @@ pub struct CrudProps {
 }
 
 impl CrudProps {
-    pub(crate) fn sortable_fields(&self) -> impl Iterator<Item=&CrudField> {
+    pub(crate) fn sortable_fields(&self) -> impl Iterator<Item = &CrudField> {
         self.fields.iter().filter(|f| f.is_sortable)
     }
 
-    pub(crate) fn filterable_fields(&self) -> impl Iterator<Item=&CrudField> {
+    pub(crate) fn filterable_fields(&self) -> impl Iterator<Item = &CrudField> {
         self.fields.iter().filter(|f| f.is_filterable)
     }
 
     pub(crate) fn updatable_fields(&self) -> Vec<CrudField> {
-        self.user_supplied_fields().map(|f| f.as_update_field()).collect()
+        self.user_supplied_fields()
+            .map(|f| f.as_update_field())
+            .collect()
     }
 
-    pub(crate) fn user_supplied_fields(&self) -> impl Iterator<Item=&CrudField> {
-        self.fields.iter().filter(|f| !f.is_generated && !f.is_primary_key)
+    pub(crate) fn user_supplied_fields(&self) -> impl Iterator<Item = &CrudField> {
+        self.fields
+            .iter()
+            .filter(|f| !f.is_generated && !f.is_primary_key)
     }
 }

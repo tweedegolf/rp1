@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
-use syn::Ident;
 use quote::{format_ident, quote};
+use syn::Ident;
 
 use crate::props::CrudProps;
 

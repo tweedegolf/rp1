@@ -86,9 +86,7 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
     )
 }
 
-fn derive_update_type(
-    props: &CrudProps,
-) -> TokenStream {
+fn derive_update_type(props: &CrudProps) -> TokenStream {
     let fields = props.updatable_fields();
     let table_name = props.table_name.to_string();
 

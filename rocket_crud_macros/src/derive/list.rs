@@ -14,10 +14,14 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         ..
     } = props;
 
-    let sortable_field_names = props.sortable_fields().map(|f| f.ident.clone()).collect::<Vec<_>>();
+    let sortable_field_names = props
+        .sortable_fields()
+        .map(|f| f.ident.clone())
+        .collect::<Vec<_>>();
 
     let filterable_fields = props.filterable_fields().collect::<Vec<_>>();
-    let filter_field_names = filterable_fields.iter()
+    let filter_field_names = filterable_fields
+        .iter()
         .map(|f| f.ident.clone())
         .collect::<Vec<_>>();
 

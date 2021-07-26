@@ -1,9 +1,9 @@
 extern crate proc_macro;
 
 mod crud_impl;
+mod derive;
 mod error;
 mod props;
-mod derive;
 
 pub(crate) use error::*;
 
