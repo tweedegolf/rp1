@@ -5,19 +5,27 @@ extern crate rocket;
 
 mod schema;
 
-use rocket_crud::access_control::CheckPermissions;
+use diesel::backend::Backend;
+use rocket_crud::{CrudStruct, access_control::{CheckPermissions, PermissionFilter}};
 use rocket_sync_db_pools::database;
 
-fn baz(u: User) -> <User as CheckPermissions>::AuthUser {
-    AUser::Anonymous
-}
-
-impl CheckPermissions for self::user::User {
+impl CheckPermissions for User {
     type AuthUser = AUser;
 }
 
 impl CheckPermissions for Post {
     type AuthUser = AUser;
+
+    fn filter_list<DB>(u: &Self::AuthUser) -> PermissionFilter<<Self as CrudStruct>::TableType, DB> where DB: Backend {
+        use diesel::prelude::*;
+        use crate::schema::posts::dsl::*;
+        match u {
+            AUser::Anonymous => PermissionFilter::KeepNone,
+            AUser::LoggedIn(u) => PermissionFilter::Filter(
+                Box::new(user_id.eq(u.id))
+            )
+        }
+    }
 }
 
 impl CheckPermissions for Comment {
@@ -28,10 +36,10 @@ impl CheckPermissions for Comment {
 struct Db(diesel::PgConnection);
 
 #[rocket_crud::crud(database = "Db", table_name = "users")]
-#[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
+#[derive(Debug, serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
-    id: i32,
+    pub id: i32,
     #[validate(email)]
     username: String,
     role: String,
@@ -42,7 +50,7 @@ struct User {
 }
 
 #[rocket_crud::crud(database = "Db", table_name = "posts")]
-#[derive(serde::Serialize, diesel::Queryable)]
+#[derive(Debug, serde::Serialize, diesel::Queryable)]
 struct Post {
     #[primary_key]
     id: i32,
@@ -57,7 +65,7 @@ struct Post {
 }
 
 #[rocket_crud::crud(database = "Db", table_name = "comments")]
-#[derive(serde::Serialize, diesel::Queryable)]
+#[derive(Debug, serde::Serialize, diesel::Queryable)]
 struct Comment {
     #[primary_key]
     id: i32,
@@ -83,44 +91,12 @@ fn rocket() -> _ {
         .attach(Db::fairing())
 }
 
-#[::rocket::get("/foo/<id>")]
-async fn read_fn(
-    db: Db,
-    // auth_user: <#ident as ::rocket_crud::access_control::CheckPermissions>::AuthUser,
-    id: i32,
-) -> ::rocket_crud::RocketCrudResponse<User> {
-    use ::diesel::prelude::*;
-
-    use ::rocket_crud::access_control::CheckPermissions;
-    use ::rocket_crud::helper::{db_error_to_response, ok_to_response};
-
-    let auth_user = AUser::Anonymous;
-
-    let db_result = db
-        .run(move |conn| schema::users::table.find(id).first::<User>(conn))
-        .await;
-
-    match db_result {
-        Err(e) => db_error_to_response(e),
-        Ok(user) => {
-            if <User as CheckPermissions>::allow_read(&user, &auth_user) {
-                ok_to_response(user)
-            } else {
-                panic!()
-            }
-        }
-    }
-}
-
 pub enum AUser {
     LoggedIn(User),
     Anonymous,
 }
 
-use rocket::{
-    http::uri::Authority,
-    request::{FromRequest, Outcome, Request},
-};
+use rocket::request::{FromRequest, Outcome, Request};
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for AUser {
@@ -132,9 +108,7 @@ impl<'r> FromRequest<'r> for AUser {
         match req.headers().get_one("X-UNSAFE-USER-ID") {
             Some(user_id_str) => {
                 let db = <Db as FromRequest>::from_request(req).await.unwrap();
-
                 let user_id: i32 = user_id_str.parse().unwrap();
-
                 let user: User = db
                     .run(move |conn| {
                         schema::users::table
@@ -143,7 +117,6 @@ impl<'r> FromRequest<'r> for AUser {
                             .unwrap()
                     })
                     .await;
-
                 Outcome::Success(AUser::LoggedIn(user))
             }
             None => Outcome::Success(AUser::Anonymous),

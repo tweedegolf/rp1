@@ -1,6 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
 use crate::{Error, Result};
+use darling::FromMeta;
 use inflector::cases::snakecase::to_snake_case;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens, TokenStreamExt};
@@ -151,7 +152,7 @@ impl TryFrom<&Field> for CrudField {
 /// This struct is a deserialization of all properties that the macro accepts.
 ///
 /// This struct should immediately be converted to [CrudProps].
-#[derive(Debug, darling::FromMeta)]
+#[derive(Debug, FromMeta)]
 pub struct CrudPropsBuilder {
     #[darling(rename = "database")]
     database_struct: Path,
@@ -179,6 +180,8 @@ pub struct CrudPropsBuilder {
     table_name: Option<Ident>,
     #[darling(default)]
     max_limit: Option<i64>,
+    #[darling(default = "enabled")]
+    auth: bool,
 }
 
 impl CrudPropsBuilder {
@@ -229,6 +232,7 @@ impl CrudPropsBuilder {
             list: self.list,
             update: self.update,
             delete: self.delete,
+
             table_name: self
                 .table_name
                 .unwrap_or_else(|| format_ident!("{}", to_snake_case(&item.ident.to_string()))),
@@ -237,6 +241,7 @@ impl CrudPropsBuilder {
             original_visibility,
             fields,
             item,
+            auth: self.auth,
         })
     }
 }
@@ -262,6 +267,7 @@ pub struct CrudProps {
     pub(crate) max_limit: i64,
     pub(crate) original_visibility: Visibility,
     pub(crate) fields: Vec<CrudField>,
+    pub(crate) auth: bool,
 }
 
 impl CrudProps {

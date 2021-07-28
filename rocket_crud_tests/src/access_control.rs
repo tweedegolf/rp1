@@ -1,30 +1,37 @@
-use rocket::data::Data;
-use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::ContentType;
 use rocket::http::Header;
+use rocket::request::FromRequest;
+use rocket::request::Outcome;
 use rocket::request::Request;
 use rocket::Build;
 use rocket::Rocket;
 
+use rocket_crud::CheckPermissions;
 use rocket_sync_db_pools::database;
 
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud(database = "Db", table_name = "users")]
+pub enum AUser {
+    LoggedIn(User),
+    Anonymous,
+}
+
+#[rocket_crud::crud(database = "Db", table_name = "users", auth = false)]
 #[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
     id: i32,
     #[validate(email)]
     username: String,
+    role: String,
     #[generated]
     created_at: chrono::NaiveDateTime,
     #[generated]
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "posts")]
+#[rocket_crud::crud(database = "Db", table_name = "posts", auth = false)]
 #[derive(serde::Serialize, diesel::Queryable)]
 struct Post {
     #[primary_key]
@@ -39,7 +46,7 @@ struct Post {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "comments")]
+#[rocket_crud::crud(database = "Db", table_name = "comments", auth = false)]
 #[derive(serde::Serialize, diesel::Queryable)]
 struct Comment {
     #[primary_key]
@@ -55,6 +62,18 @@ struct Comment {
     created_at: chrono::NaiveDateTime,
     #[generated]
     updated_at: chrono::NaiveDateTime,
+}
+
+impl CheckPermissions for User {
+    type AuthUser = AUser;
+}
+
+impl CheckPermissions for Post {
+    type AuthUser = AUser;
+}
+
+impl CheckPermissions for Comment {
+    type AuthUser = AUser;
 }
 
 #[derive(std::hash::Hash, serde::Serialize, Debug)]
@@ -170,7 +189,7 @@ impl<'r> FromRequest<'r> for AUser {
 
                 let user: User = db
                     .run(move |conn| {
-                        schema::users::table
+                        crate::schema::users::table
                             .find(user_id)
                             .first::<User>(conn)
                             .unwrap()

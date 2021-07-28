@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::Ident;
 
-use crate::props::CrudProps;
+use crate::{derive::common::derive_auth_param, props::CrudProps};
 
 pub(crate) fn derive_crud_read(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
     let CrudProps {
@@ -14,40 +14,36 @@ pub(crate) fn derive_crud_read(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         ..
     } = props;
 
+    let auth_param = derive_auth_param(props);
+    let auth_check = if props.auth {
+        quote!{
+            if <#ident as ::rocket_crud::CheckPermissions>::allow_read(&row, &auth_user) {
+                row
+            } else {
+                return Err(::rocket_crud::CrudError::NotFound);
+            }
+        }
+    } else {
+        quote!(row)
+    };
+
     let tokens = quote! {
 
         #[::rocket::get("/<id>")]
         async fn read_fn(
             db: #database_struct,
-            auth_user: <#ident as ::rocket_crud::access_control::CheckPermissions>::AuthUser,
             id: #primary_type,
-        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+            #auth_param
+        ) -> ::rocket_crud::CrudJsonResult<#ident>
         {
-            use ::rocket_crud::helper::{ok_to_response, db_error_to_response};
-            use ::rocket_crud::access_control::CheckPermissions;
-
-            // let auth_user = todo!();
-
-            let db_result  = db.run(move |conn| {
+            let row = db.run(move |conn| {
                 #schema_path::#table_name::table
                     .find(id)
                     .first::<#ident>(conn)
             })
-            .await;
-
-
-            match db_result {
-                Err(e) => db_error_to_response(e),
-                Ok(user) => {
-
-                    if <#ident as CheckPermissions>::allow_read(&user, &auth_user) {
-                        ok_to_response(user)
-                    } else {
-                        panic!()
-                    }
-
-                }
-            }
+            .await?;
+            let row = #auth_check;
+            Ok(::rocket::serde::json::Json(row))
         }
     };
 

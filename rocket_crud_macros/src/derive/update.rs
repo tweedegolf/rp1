@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::Ident;
 
-use crate::props::CrudProps;
+use crate::{derive::common::derive_auth_param, props::CrudProps};
 
 pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
     let CrudProps {
@@ -17,14 +17,32 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
 
     let update_type = derive_update_type(props);
 
+    let auth_param = derive_auth_param(props);
+    let auth_pass = if props.auth {
+        Some(quote!(auth_user,))
+    } else {
+        None
+    };
+    let auth_check = if props.auth {
+        Some(quote!{
+            let row = db.run(move |conn| {
+                #schema_path::#table_name::table
+                    .find(id)
+                    .first::<#ident>(conn)
+            })
+            .await?;
+            if !<#ident as ::rocket_crud::CheckPermissions>::allow_update(&row, &value, &auth_user) {
+                return Err(::rocket_crud::CrudError::NotFound);
+            }
+        })
+    } else {
+        None
+    };
+
     let validate = if cfg!(feature = "validator") {
         Some(quote::quote! {
-            use ::rocket_crud::helper::validation_error_to_response;
             use ::validator::Validate;
-            match value.validate() {
-                Ok(_) => {},
-                Err(e) => return validation_error_to_response(e),
-            };
+            value.validate()?;
         })
     } else {
         None
@@ -36,42 +54,44 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         async fn update_fn_help(
             db: #database_struct,
             id: #primary_type,
-            value: #update_ident
-        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+            value: #update_ident,
+            #auth_param
+        ) -> ::rocket_crud::CrudJsonResult<#ident>
         {
-            use ::rocket_crud::helper::{ok_to_response, db_error_to_response};
+            #auth_check
 
             #validate
 
-            db.run(move |conn| {
+            Ok(::rocket::serde::json::Json(db.run(move |conn| {
                 diesel::update(#schema_path::#table_name::table.find(id))
                     .set(&value)
                     .get_result(conn)
             })
-            .await
-            .map_or_else(db_error_to_response, ok_to_response)
+            .await?))
         }
 
         #[::rocket::patch("/<id>", format = "json", data = "<value>")]
         async fn update_fn_json(
             db: #database_struct,
             id: #primary_type,
-            value: ::rocket::serde::json::Json<#update_ident>
-        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+            value: ::rocket::serde::json::Json<#update_ident>,
+            #auth_param
+        ) -> ::rocket_crud::CrudJsonResult<#ident>
         {
             let value = value.into_inner();
-            update_fn_help(db, id, value).await
+            update_fn_help(db, id, value, #auth_pass).await
         }
 
         #[::rocket::patch("/form/<id>", data = "<value>")]
         async fn update_fn_form(
             db: #database_struct,
             id: #primary_type,
-            value: ::rocket::form::Form<#update_ident>
-        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+            value: ::rocket::form::Form<#update_ident>,
+            #auth_param
+        ) -> ::rocket_crud::CrudJsonResult<#ident>
         {
             let value = value.into_inner();
-            update_fn_help(db, id, value).await
+            update_fn_help(db, id, value, #auth_pass).await
         }
     };
     (
@@ -109,10 +129,24 @@ fn derive_update_type(props: &CrudProps) -> TokenStream {
         #derive_validate
         #[derive(Default)]
         #[table_name = #table_name]
-        struct #update_ident {
+        pub struct #update_ident {
             #(#fields),*
         }
 
-        impl ::rocket_crud::CrudUpdatableMarker for #ident {}
+        impl ::rocket_crud::CrudUpdatable for #ident {
+            type UpdateType = #update_ident;
+        }
+    }
+}
+
+pub(crate) fn derive_crud_without_update(props: &CrudProps) -> TokenStream {
+    let CrudProps {
+        ident,
+        ..
+    } = props;
+    quote! {
+        impl ::rocket_crud::CrudUpdatable for #ident {
+            type UpdateType = ();
+        }
     }
 }

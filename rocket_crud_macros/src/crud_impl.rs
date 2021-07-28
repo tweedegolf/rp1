@@ -17,6 +17,8 @@ pub fn crud_impl(args: AttributeArgs, item: TokenStream) -> crate::Result {
         let (toks, mut func) = crate::derive::create::derive_crud_create(&props);
         tokens.push(toks);
         routes.append(&mut func);
+    } else {
+        tokens.push(crate::derive::create::derive_crud_without_create(&props));
     }
 
     if props.read {
@@ -29,6 +31,8 @@ pub fn crud_impl(args: AttributeArgs, item: TokenStream) -> crate::Result {
         let (toks, mut func) = crate::derive::update::derive_crud_update(&props);
         tokens.push(toks);
         routes.append(&mut func);
+    } else {
+        tokens.push(crate::derive::update::derive_crud_without_update(&props));
     }
 
     if props.delete {
@@ -75,6 +79,10 @@ pub fn crud_impl(args: AttributeArgs, item: TokenStream) -> crate::Result {
                 pub fn get_routes() -> Vec<::rocket::Route> {
                     rocket::routes![#(#routes),*]
                 }
+            }
+
+            impl ::rocket_crud::CrudStruct for #ident {
+                type TableType = #schema_path::#table_name::table;
             }
         }
 
