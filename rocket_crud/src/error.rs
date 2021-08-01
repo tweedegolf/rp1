@@ -1,6 +1,10 @@
 use chrono::ParseError as ChronoParseError;
+use rocket::Response;
 use rocket::form::error::ErrorKind as FormErrorKind;
+use rocket::http::{ContentType, Status};
+use rocket::response::Responder;
 use std::convert::Infallible;
+use std::io::Cursor;
 use std::num::ParseIntError;
 use std::str::ParseBoolError;
 
@@ -50,5 +54,52 @@ impl From<Infallible> for ParseError {
 impl<'v> From<ParseError> for FormErrorKind<'v> {
     fn from(_: ParseError) -> Self {
         FormErrorKind::Unknown
+    }
+}
+
+pub enum CrudError {
+    NotFound,
+    Forbidden,
+    Example,
+    DbError(::diesel::result::Error),
+    ValidationErrors(::validator::ValidationErrors),
+}
+
+impl From<::diesel::result::Error> for CrudError {
+    fn from(e: ::diesel::result::Error) -> Self {
+        CrudError::DbError(e)
+    }
+}
+
+impl From<::validator::ValidationErrors> for CrudError {
+    fn from(e: ::validator::ValidationErrors) -> Self {
+        CrudError::ValidationErrors(e)
+    }
+}
+
+impl CrudError {
+    fn status(&self) -> Status {
+        match self {
+            CrudError::Example => Status::InternalServerError,
+            CrudError::NotFound => Status::NotFound,
+            CrudError::Forbidden => Status::Forbidden,
+            CrudError::DbError(::diesel::result::Error::NotFound) => Status::NotFound,
+            CrudError::DbError(_) => Status::InternalServerError,
+            CrudError::ValidationErrors(_) => Status::BadRequest,
+        }
+    }
+}
+
+impl<'r> Responder<'r, 'static> for CrudError {
+    fn respond_to(self, _: &'r rocket::Request<'_>) -> rocket::response::Result<'static> {
+        let status = self.status();
+        let body: String = ::serde_json::json!({
+            "error": status.code,
+        }).to_string();
+        Response::build()
+            .status(status)
+            .header(ContentType::JSON)
+            .sized_body(body.as_bytes().len(), Cursor::new(body))
+            .ok()
     }
 }

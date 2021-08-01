@@ -7,7 +7,7 @@ use rocket_sync_db_pools::database;
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud(database = "Db", table_name = "users", ignore_casbin = true)]
+#[rocket_crud::crud(database = "Db", table_name = "users", auth = false)]
 #[derive(
     Debug,
     Clone,
@@ -23,6 +23,7 @@ struct User {
     pub id: i32,
     #[validate(email)]
     pub username: String,
+    pub role: String,
     #[generated]
     pub created_at: chrono::NaiveDateTime,
     #[generated]

@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{Field, Ident};
 
-use crate::props::CrudProps;
+use crate::{derive::common::derive_auth_param, props::CrudProps};
 
 pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
     let CrudProps {
@@ -10,10 +10,24 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         ident,
         schema_path,
         table_name,
-        permissions_guard,
         filter_ident,
         ..
     } = props;
+
+    let auth_param = derive_auth_param(props);
+    let auth_filter = if props.auth {
+        Some(quote!{
+            let query = match <#ident as ::rocket_crud::CheckPermissions>::filter_list(&auth_user) {
+                ::rocket_crud::PermissionFilter::KeepAll => query,
+                ::rocket_crud::PermissionFilter::KeepNone => {
+                    return Err(::diesel::result::Error::NotFound);
+                },
+                ::rocket_crud::PermissionFilter::Filter(f) => query.filter(f),
+            };
+        })
+    } else {
+        None
+    };
 
     let sortable_field_names = props
         .sortable_fields()
@@ -123,7 +137,9 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             #(#filter_fields),*
         }
 
-        impl ::rocket_crud::CrudFilterSpecMarker for #filter_ident {}
+        impl ::rocket_crud::CrudFilterSpec for #ident {
+            type FilterSpecType = #filter_ident;
+        }
 
         impl Default for #filter_ident {
             fn default() -> #filter_ident {
@@ -217,18 +233,16 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         #[::rocket::get("/?<sort>&<offset>&<limit>&<filter>")]
         async fn list_fn(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
             sort: Vec<::rocket_crud::SortSpec<SortableFields>>,
             filter: #filter_ident,
             offset: Option<i64>,
             limit: Option<i64>,
-        ) -> ::rocket_crud::RocketCrudResponse<Vec<#ident>>
+            #auth_param
+        ) -> ::rocket_crud::CrudJsonResult<Vec<#ident>>
         {
-            use ::rocket_crud::helper::{ok_to_response, db_error_to_response};
-
             let offset = i64::max(0, offset.unwrap_or(0));
             let limit = i64::max(1, i64::min(#max_limit, limit.unwrap_or(#max_limit)));
-            db.run(move |conn| {
+            let results = db.run(move |conn| {
                 use ::rocket_crud::SortDirection;
                 use ::diesel::expression::Expression;
                 let mut query = #schema_path::#table_name::table.offset(offset).limit(limit).into_boxed();
@@ -244,10 +258,14 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
                     }
                 }
                 #(#filter_apply_stmts)*
+
+                #auth_filter
+
                 query.load(conn)
             })
-            .await
-            .map_or_else(db_error_to_response, ok_to_response)
+            .await?;
+
+            Ok(::rocket::serde::json::Json(results))
         }
     };
 

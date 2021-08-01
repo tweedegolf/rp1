@@ -2,33 +2,52 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::Ident;
 
-use crate::props::CrudProps;
+use crate::{derive::common::derive_auth_param, props::CrudProps};
 
 pub(crate) fn derive_crud_delete(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
     let CrudProps {
+        ident,
         database_struct,
         table_name,
         schema_path,
         primary_type,
-        permissions_guard,
         ..
     } = props;
+
+    let auth_param = derive_auth_param(props);
+    let auth_check = if props.auth {
+        Some(quote!{
+            let row = db.run(move |conn| {
+                #schema_path::#table_name::table
+                    .find(id)
+                    .first::<#ident>(conn)
+            })
+            .await?;
+            if !<#ident as ::rocket_crud::CheckPermissions>::allow_delete(&row, &auth_user) {
+                return Err(::rocket_crud::CrudError::NotFound);
+            }
+        })
+    } else {
+        None
+    };
 
     let tokens = quote! {
         #[::rocket::delete("/<id>")]
         async fn delete_fn(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
             id: #primary_type,
-        ) -> ::rocket_crud::RocketCrudResponse<usize>
+            #auth_param
+        ) -> ::rocket_crud::CrudResult<::rocket::serde::json::Value>
         {
-            use ::rocket_crud::helper::{ok_to_response, db_error_to_response};
+            #auth_check
 
-            db.run(move |conn| {
+            let deleted = db.run(move |conn| {
                 diesel::delete(#schema_path::#table_name::table.find(id)).execute(conn)
             })
-            .await
-            .map_or_else(db_error_to_response, ok_to_response)
+            .await?;
+            Ok(::rocket::serde::json::json!({
+                "deleted": deleted,
+            }))
         }
     };
 

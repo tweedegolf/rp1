@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::Ident;
 
-use crate::props::CrudProps;
+use crate::{derive::common::derive_auth_param, props::CrudProps};
 
 pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
     let CrudProps {
@@ -11,18 +11,29 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         ident,
         table_name,
         schema_path,
-        permissions_guard,
         ..
     } = props;
 
     let validate = if cfg!(feature = "validator") {
         Some(quote::quote! {
-            use ::rocket_crud::helper::validation_error_to_response;
             use ::validator::Validate;
-            match value.validate() {
-                Ok(_) => {},
-                Err(e) => return validation_error_to_response(e),
-            };
+            value.validate()?;
+        })
+    } else {
+        None
+    };
+
+    let auth_param = derive_auth_param(props);
+    let auth_pass = if props.auth {
+        Some(quote!(auth_user,))
+    } else {
+        None
+    };
+    let auth_check = if props.auth {
+        Some(quote!{
+            if !<#ident as ::rocket_crud::CheckPermissions>::allow_create(&value, &auth_user) {
+                return Err(::rocket_crud::CrudError::Forbidden);
+            }
         })
     } else {
         None
@@ -35,42 +46,41 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
 
         async fn create_fn_help(
             db: #database_struct,
-            value: #new_ident
-        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+            value: #new_ident,
+            #auth_param
+        ) -> ::rocket_crud::CrudJsonResult<#ident>
         {
-            use ::rocket_crud::helper::{ok_to_response, db_error_to_response};
+            #auth_check
 
             #validate
 
-            db.run(move |conn| {
+            Ok(::rocket::serde::json::Json(db.run(move |conn| {
                 diesel::insert_into(#schema_path::#table_name::table)
                     .values(&value)
                     .get_result(conn)
-            })
-            .await
-            .map_or_else(db_error_to_response, ok_to_response)
+            }).await?))
         }
 
         #[::rocket::post("/", format = "json", data = "<value>")]
         async fn create_fn_json(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
-            value: ::rocket::serde::json::Json<#new_ident>
-        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+            value: ::rocket::serde::json::Json<#new_ident>,
+            #auth_param
+        ) -> ::rocket_crud::CrudJsonResult<#ident>
         {
             let value = value.into_inner();
-            create_fn_help(db, value).await
+            create_fn_help(db, value, #auth_pass).await
         }
 
         #[::rocket::post("/form", data = "<value>")]
         async fn create_fn_form(
             db: #database_struct,
-            _permissions_guard: #permissions_guard,
-            value: ::rocket::form::Form<#new_ident>
-        ) -> ::rocket_crud::RocketCrudResponse<#ident>
+            value: ::rocket::form::Form<#new_ident>,
+            #auth_param
+        ) -> ::rocket_crud::CrudJsonResult<#ident>
         {
             let value = value.into_inner();
-            create_fn_help(db, value).await
+            create_fn_help(db, value, #auth_pass).await
         }
     };
 
@@ -84,8 +94,11 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
 }
 
 fn derive_new_type(props: &CrudProps) -> TokenStream {
-    let new_ident = &props.new_ident;
-    let orig_ident = &props.ident;
+    let CrudProps {
+        ident,
+        new_ident,
+        ..
+    } = props;
     let table_name = props.table_name.to_string();
     let fields = props.user_supplied_fields();
 
@@ -104,11 +117,25 @@ fn derive_new_type(props: &CrudProps) -> TokenStream {
         #[derive(::serde::Deserialize)]
         #derive_validate
         #[table_name = #table_name]
-        struct #new_ident {
+        pub struct #new_ident {
             #(#fields),*
         }
 
-        impl ::rocket_crud::CrudInsertableMarker for #orig_ident {}
+        impl ::rocket_crud::CrudInsertable for #ident {
+            type InsertType = #new_ident;
+        }
     };
     tokens
+}
+
+pub(crate) fn derive_crud_without_create(props: &CrudProps) -> TokenStream {
+    let CrudProps {
+        ident,
+        ..
+    } = props;
+    quote!{
+        impl ::rocket_crud::CrudInsertable for #ident {
+            type InsertType = ();
+        }
+    }
 }
