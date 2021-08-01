@@ -1,11 +1,25 @@
-use diesel::{BoxableExpression, backend::Backend, sql_types::Bool};
+use diesel::{BoxableExpression, backend::Backend, query_builder::BoxedSelectStatement, sql_types::Bool};
 
 use crate::{CrudInsertable, CrudStruct, CrudUpdatable};
 
+/// A filter for when a list of items that will be queried needs to be
 pub enum PermissionFilter<QS, DB> where DB: Backend {
     KeepAll,
     KeepNone,
     Filter(Box<dyn BoxableExpression<QS, DB, SqlType = Bool>>),
+}
+
+impl<'a, QS, DB> PermissionFilter<QS, DB> where DB: 'a + Backend, QS: 'a {
+    pub fn apply<ST>(self, query: BoxedSelectStatement<'a, ST, QS, DB>) -> Option<BoxedSelectStatement<'a, ST, QS, DB>> {
+        use diesel::prelude::*;
+        match self {
+            PermissionFilter::KeepAll => Some(query),
+            PermissionFilter::KeepNone => None,
+            PermissionFilter::Filter(f) => {
+                Some(query.filter(f))
+            }
+        }
+    }
 }
 
 pub trait CheckPermissions where Self: CrudUpdatable + CrudInsertable + CrudStruct {

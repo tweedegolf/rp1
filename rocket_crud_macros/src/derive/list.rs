@@ -16,17 +16,14 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
 
     let auth_param = derive_auth_param(props);
     let auth_filter = if props.auth {
-        Some(quote!{
-            let query = match <#ident as ::rocket_crud::CheckPermissions>::filter_list(&auth_user) {
-                ::rocket_crud::PermissionFilter::KeepAll => query,
-                ::rocket_crud::PermissionFilter::KeepNone => {
-                    return Err(::diesel::result::Error::NotFound);
-                },
-                ::rocket_crud::PermissionFilter::Filter(f) => query.filter(f),
-            };
-        })
+        quote!{
+            let filter = <#ident as ::rocket_crud::CheckPermissions>::filter_list(&auth_user);
+            let query = filter.apply(query);
+        }
     } else {
-        None
+        quote!{
+            let query = Some(query);
+        }
     };
 
     let sortable_field_names = props
@@ -261,9 +258,10 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
 
                 #auth_filter
 
-                query.load(conn)
+                query.map(|q| q.load(conn))
             })
-            .await?;
+            .await
+            .ok_or_else(|| ::rocket_crud::CrudError::Forbidden)??;
 
             Ok(::rocket::serde::json::Json(results))
         }
