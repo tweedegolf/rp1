@@ -24,6 +24,7 @@ validator = { version = "0.14.0", features = ["derive"], optional = true }
 version = "1.4.6"
 
 [dependencies.rp1-macros]
+version = "0.1.0"
 path = "../rp1_macros/"
 
 [features]
