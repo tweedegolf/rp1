@@ -1,6 +1,6 @@
 # RP1
-RP-1 provides an easy way to quickly create a basic API using [Diesel] and
-[Rocket] (v0.5). Using a simple attribute on a struct RP-1 generates simple
+RP1 provides an easy way to quickly create a basic API using [Diesel] and
+[Rocket] (v0.5). Using a simple attribute on a struct RP1 generates simple
 REST-like API endpoints for [CRUD] operations.
 
 In the world of rockets, RP-1 (Rocket Propellant-1) is the rocket fuel of

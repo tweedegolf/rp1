@@ -1,8 +1,8 @@
 use chrono::ParseError as ChronoParseError;
-use rocket::Response;
 use rocket::form::error::ErrorKind as FormErrorKind;
 use rocket::http::{ContentType, Status};
 use rocket::response::Responder;
+use rocket::Response;
 use std::convert::Infallible;
 use std::io::Cursor;
 use std::num::ParseIntError;
@@ -95,7 +95,8 @@ impl<'r> Responder<'r, 'static> for CrudError {
         let status = self.status();
         let body: String = ::serde_json::json!({
             "error": status.code,
-        }).to_string();
+        })
+        .to_string();
         Response::build()
             .status(status)
             .header(ContentType::JSON)

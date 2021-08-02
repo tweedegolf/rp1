@@ -30,7 +30,7 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         None
     };
     let auth_check = if props.auth {
-        Some(quote!{
+        Some(quote! {
             if !<#ident as ::rp1::CheckPermissions>::allow_create(&value, &auth_user) {
                 return Err(::rp1::CrudError::Forbidden);
             }
@@ -95,9 +95,7 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
 
 fn derive_new_type(props: &CrudProps) -> TokenStream {
     let CrudProps {
-        ident,
-        new_ident,
-        ..
+        ident, new_ident, ..
     } = props;
     let table_name = props.table_name.to_string();
     let fields = props.user_supplied_fields();
@@ -129,11 +127,8 @@ fn derive_new_type(props: &CrudProps) -> TokenStream {
 }
 
 pub(crate) fn derive_crud_without_create(props: &CrudProps) -> TokenStream {
-    let CrudProps {
-        ident,
-        ..
-    } = props;
-    quote!{
+    let CrudProps { ident, .. } = props;
+    quote! {
         impl ::rp1::CrudInsertable for #ident {
             type InsertType = ();
         }

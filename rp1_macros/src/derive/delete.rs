@@ -16,7 +16,7 @@ pub(crate) fn derive_crud_delete(props: &CrudProps) -> (TokenStream, Vec<Ident>)
 
     let auth_param = derive_auth_param(props);
     let auth_check = if props.auth {
-        Some(quote!{
+        Some(quote! {
             let row = db.run(move |conn| {
                 #schema_path::#table_name::table
                     .find(id)

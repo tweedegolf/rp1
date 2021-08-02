@@ -6,8 +6,8 @@ use rocket::request::Request;
 use rocket::Build;
 use rocket::Rocket;
 
-use rp1::CheckPermissions;
 use rocket_sync_db_pools::database;
+use rp1::CheckPermissions;
 
 #[database("diesel")]
 struct Db(diesel::PgConnection);
@@ -172,7 +172,6 @@ async fn create_post_pass() {
 
     assert_eq!(response.status(), Status::Ok);
 }
-
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for AUser {

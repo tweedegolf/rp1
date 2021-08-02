@@ -6,8 +6,11 @@ extern crate rocket;
 mod schema;
 
 use diesel::backend::Backend;
-use rp1::{CrudStruct, access_control::{CheckPermissions, PermissionFilter}};
 use rocket_sync_db_pools::database;
+use rp1::{
+    access_control::{CheckPermissions, PermissionFilter},
+    CrudStruct,
+};
 
 impl CheckPermissions for User {
     type AuthUser = AUser;
@@ -16,14 +19,15 @@ impl CheckPermissions for User {
 impl CheckPermissions for Post {
     type AuthUser = AUser;
 
-    fn filter_list<DB>(u: &Self::AuthUser) -> PermissionFilter<<Self as CrudStruct>::TableType, DB> where DB: Backend {
-        use diesel::prelude::*;
+    fn filter_list<DB>(u: &Self::AuthUser) -> PermissionFilter<<Self as CrudStruct>::TableType, DB>
+    where
+        DB: Backend,
+    {
         use crate::schema::posts::dsl::*;
+        use diesel::prelude::*;
         match u {
             AUser::Anonymous => PermissionFilter::KeepNone,
-            AUser::LoggedIn(u) => PermissionFilter::Filter(
-                Box::new(user_id.eq(u.id))
-            )
+            AUser::LoggedIn(u) => PermissionFilter::Filter(Box::new(user_id.eq(u.id))),
         }
     }
 }

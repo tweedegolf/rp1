@@ -22,10 +22,10 @@ pub mod access_control;
 
 use ::rocket::serde::json::Json;
 
+pub use access_control::*;
 pub use error::*;
 pub use filter::*;
 pub use sort::*;
-pub use access_control::*;
 
 pub use rp1_macros::crud;
 

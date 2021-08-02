@@ -16,7 +16,7 @@ pub(crate) fn derive_crud_read(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
 
     let auth_param = derive_auth_param(props);
     let auth_check = if props.auth {
-        quote!{
+        quote! {
             if <#ident as ::rp1::CheckPermissions>::allow_read(&row, &auth_user) {
                 row
             } else {

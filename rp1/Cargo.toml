@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Ruben Nijveld <ruben@tweedegolf.com>", "Folkert <folkert@folkertdev.nl>"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
+description = "Easily generate a REST-like CRUD API using Rocket and Diesel"
+homepage = "https://github.com/tweedegolf/rp1"
+documentation = "https://docs.rs/rp1"
+repository = "https://github.com/tweedegolf/rp1"
 
 [dependencies]
 async-mutex = "1.4.0"

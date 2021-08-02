@@ -24,7 +24,7 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         None
     };
     let auth_check = if props.auth {
-        Some(quote!{
+        Some(quote! {
             let row = db.run(move |conn| {
                 #schema_path::#table_name::table
                     .find(id)
@@ -140,10 +140,7 @@ fn derive_update_type(props: &CrudProps) -> TokenStream {
 }
 
 pub(crate) fn derive_crud_without_update(props: &CrudProps) -> TokenStream {
-    let CrudProps {
-        ident,
-        ..
-    } = props;
+    let CrudProps { ident, .. } = props;
     quote! {
         impl ::rp1::CrudUpdatable for #ident {
             type UpdateType = ();

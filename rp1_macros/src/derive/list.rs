@@ -16,12 +16,12 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
 
     let auth_param = derive_auth_param(props);
     let auth_filter = if props.auth {
-        quote!{
+        quote! {
             let filter = <#ident as ::rp1::CheckPermissions>::filter_list(&auth_user);
             let query = filter.apply(query);
         }
     } else {
-        quote!{
+        quote! {
             let query = Some(query);
         }
     };
