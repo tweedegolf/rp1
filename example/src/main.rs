@@ -6,7 +6,7 @@ extern crate rocket;
 mod schema;
 
 use diesel::backend::Backend;
-use rocket_crud::{CrudStruct, access_control::{CheckPermissions, PermissionFilter}};
+use rp1::{CrudStruct, access_control::{CheckPermissions, PermissionFilter}};
 use rocket_sync_db_pools::database;
 
 impl CheckPermissions for User {
@@ -35,7 +35,7 @@ impl CheckPermissions for Comment {
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rocket_crud::crud(database = "Db", table_name = "users")]
+#[rp1::crud(database = "Db", table_name = "users")]
 #[derive(Debug, serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
@@ -49,7 +49,7 @@ struct User {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "posts")]
+#[rp1::crud(database = "Db", table_name = "posts")]
 #[derive(Debug, serde::Serialize, diesel::Queryable)]
 struct Post {
     #[primary_key]
@@ -64,7 +64,7 @@ struct Post {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "comments")]
+#[rp1::crud(database = "Db", table_name = "comments")]
 #[derive(Debug, serde::Serialize, diesel::Queryable)]
 struct Comment {
     #[primary_key]

@@ -6,7 +6,7 @@ use rocket::request::Request;
 use rocket::Build;
 use rocket::Rocket;
 
-use rocket_crud::CheckPermissions;
+use rp1::CheckPermissions;
 use rocket_sync_db_pools::database;
 
 #[database("diesel")]
@@ -17,7 +17,7 @@ pub enum AUser {
     Anonymous,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "users", auth = false)]
+#[rp1::crud(database = "Db", table_name = "users", auth = false)]
 #[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
@@ -31,7 +31,7 @@ struct User {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "posts", auth = false)]
+#[rp1::crud(database = "Db", table_name = "posts", auth = false)]
 #[derive(serde::Serialize, diesel::Queryable)]
 struct Post {
     #[primary_key]
@@ -46,7 +46,7 @@ struct Post {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rocket_crud::crud(database = "Db", table_name = "comments", auth = false)]
+#[rp1::crud(database = "Db", table_name = "comments", auth = false)]
 #[derive(serde::Serialize, diesel::Queryable)]
 struct Comment {
     #[primary_key]

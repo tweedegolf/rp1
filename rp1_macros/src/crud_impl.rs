@@ -81,7 +81,7 @@ pub fn crud_impl(args: AttributeArgs, item: TokenStream) -> crate::Result {
                 }
             }
 
-            impl ::rocket_crud::CrudStruct for #ident {
+            impl ::rp1::CrudStruct for #ident {
                 type TableType = #schema_path::#table_name::table;
             }
         }

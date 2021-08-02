@@ -17,10 +17,10 @@ pub(crate) fn derive_crud_read(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
     let auth_param = derive_auth_param(props);
     let auth_check = if props.auth {
         quote!{
-            if <#ident as ::rocket_crud::CheckPermissions>::allow_read(&row, &auth_user) {
+            if <#ident as ::rp1::CheckPermissions>::allow_read(&row, &auth_user) {
                 row
             } else {
-                return Err(::rocket_crud::CrudError::NotFound);
+                return Err(::rp1::CrudError::NotFound);
             }
         }
     } else {
@@ -34,7 +34,7 @@ pub(crate) fn derive_crud_read(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             db: #database_struct,
             id: #primary_type,
             #auth_param
-        ) -> ::rocket_crud::CrudJsonResult<#ident>
+        ) -> ::rp1::CrudJsonResult<#ident>
         {
             let row = db.run(move |conn| {
                 #schema_path::#table_name::table

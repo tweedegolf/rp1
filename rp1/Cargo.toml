@@ -1,9 +1,10 @@
 [package]
-authors = ["The Roc Contributors"]
-edition = "2018"
-license = "UPL-1.0"
-name = "rocket-crud"
+name = "rp1"
 version = "0.1.0"
+authors = ["Ruben Nijveld <ruben@tweedegolf.com>", "Folkert <folkert@folkertdev.nl>"]
+license = "MIT OR Apache-2.0"
+edition = "2018"
+
 [dependencies]
 async-mutex = "1.4.0"
 chrono = "0.4.19"
@@ -18,12 +19,11 @@ validator = { version = "0.14.0", features = ["derive"], optional = true }
 [dependencies.diesel]
 version = "1.4.6"
 
-[dependencies.rocket-crud-macros]
-path = "../rocket_crud_macros/"
-
+[dependencies.rp1-macros]
+path = "../rp1_macros/"
 
 [features]
-crud-validator = [ "validator", "rocket-crud-macros/validator" ]
+crud-validator = [ "validator", "rp1-macros/validator" ]
 
 [dev-dependencies]
 diesel_migrations = "1.4.0"
@@ -42,9 +42,6 @@ version = "1.4.6"
 [dev-dependencies.rocket]
 features = ["json"]
 version = "0.5.0-rc.1"
-
-[dev-dependencies.rocket-crud]
-path = "../rocket_crud/"
 
 [dev-dependencies.rocket_sync_db_pools]
 features = ["diesel_postgres_pool"]

@@ -31,8 +31,8 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
                     .first::<#ident>(conn)
             })
             .await?;
-            if !<#ident as ::rocket_crud::CheckPermissions>::allow_update(&row, &value, &auth_user) {
-                return Err(::rocket_crud::CrudError::NotFound);
+            if !<#ident as ::rp1::CheckPermissions>::allow_update(&row, &value, &auth_user) {
+                return Err(::rp1::CrudError::NotFound);
             }
         })
     } else {
@@ -56,7 +56,7 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
             id: #primary_type,
             value: #update_ident,
             #auth_param
-        ) -> ::rocket_crud::CrudJsonResult<#ident>
+        ) -> ::rp1::CrudJsonResult<#ident>
         {
             #auth_check
 
@@ -76,7 +76,7 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
             id: #primary_type,
             value: ::rocket::serde::json::Json<#update_ident>,
             #auth_param
-        ) -> ::rocket_crud::CrudJsonResult<#ident>
+        ) -> ::rp1::CrudJsonResult<#ident>
         {
             let value = value.into_inner();
             update_fn_help(db, id, value, #auth_pass).await
@@ -88,7 +88,7 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
             id: #primary_type,
             value: ::rocket::form::Form<#update_ident>,
             #auth_param
-        ) -> ::rocket_crud::CrudJsonResult<#ident>
+        ) -> ::rp1::CrudJsonResult<#ident>
         {
             let value = value.into_inner();
             update_fn_help(db, id, value, #auth_pass).await
@@ -133,7 +133,7 @@ fn derive_update_type(props: &CrudProps) -> TokenStream {
             #(#fields),*
         }
 
-        impl ::rocket_crud::CrudUpdatable for #ident {
+        impl ::rp1::CrudUpdatable for #ident {
             type UpdateType = #update_ident;
         }
     }
@@ -145,7 +145,7 @@ pub(crate) fn derive_crud_without_update(props: &CrudProps) -> TokenStream {
         ..
     } = props;
     quote! {
-        impl ::rocket_crud::CrudUpdatable for #ident {
+        impl ::rp1::CrudUpdatable for #ident {
             type UpdateType = ();
         }
     }

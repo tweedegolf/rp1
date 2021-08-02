@@ -23,8 +23,8 @@ pub(crate) fn derive_crud_delete(props: &CrudProps) -> (TokenStream, Vec<Ident>)
                     .first::<#ident>(conn)
             })
             .await?;
-            if !<#ident as ::rocket_crud::CheckPermissions>::allow_delete(&row, &auth_user) {
-                return Err(::rocket_crud::CrudError::NotFound);
+            if !<#ident as ::rp1::CheckPermissions>::allow_delete(&row, &auth_user) {
+                return Err(::rp1::CrudError::NotFound);
             }
         })
     } else {
@@ -37,7 +37,7 @@ pub(crate) fn derive_crud_delete(props: &CrudProps) -> (TokenStream, Vec<Ident>)
             db: #database_struct,
             id: #primary_type,
             #auth_param
-        ) -> ::rocket_crud::CrudResult<::rocket::serde::json::Value>
+        ) -> ::rp1::CrudResult<::rocket::serde::json::Value>
         {
             #auth_check
 

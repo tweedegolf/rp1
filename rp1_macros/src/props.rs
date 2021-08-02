@@ -62,7 +62,7 @@ impl CrudField {
                 style: AttrStyle::Outer,
                 bracket_token: Bracket(Span::call_site()),
                 path: syn::parse2(quote! { serde }).unwrap(),
-                tokens: quote! { (default, deserialize_with = "::rocket_crud::helper::double_option") },
+                tokens: quote! { (default, deserialize_with = "::rp1::helper::double_option") },
             };
             cloned.attrs.push(attr);
         }
@@ -170,12 +170,6 @@ pub struct CrudPropsBuilder {
     list: bool,
     #[darling(default, rename = "module")]
     module_name: Option<Ident>,
-    #[darling(skip)] // TODO: allow specifying the identifier for the new struct
-    new_ident: Option<Ident>,
-    #[darling(skip)] // TODO: allow specifying the identifier for the update struct
-    update_ident: Option<Ident>,
-    #[darling(skip)] // TODO: allow specifying the identifier for the filter struct
-    filter_ident: Option<Ident>,
     #[darling(default)]
     table_name: Option<Ident>,
     #[darling(default)]
@@ -215,15 +209,9 @@ impl CrudPropsBuilder {
                 .schema_path
                 .unwrap_or_else(|| syn::parse_str("crate::schema").unwrap()),
             ident: item.ident.clone(),
-            new_ident: self
-                .new_ident
-                .unwrap_or_else(|| format_ident!("New{}", &item.ident)),
-            update_ident: self
-                .update_ident
-                .unwrap_or_else(|| format_ident!("Update{}", &item.ident)),
-            filter_ident: self
-                .filter_ident
-                .unwrap_or_else(|| format_ident!("{}FilterSpec", &item.ident)),
+            new_ident: format_ident!("New{}", &item.ident),
+            update_ident: format_ident!("Update{}", &item.ident),
+            filter_ident: format_ident!("{}FilterSpec", &item.ident),
             module_name: self.module_name.unwrap_or_else(|| {
                 Ident::new(&to_snake_case(&item.ident.to_string()), Span::call_site())
             }),

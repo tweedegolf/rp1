@@ -17,7 +17,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
     let auth_param = derive_auth_param(props);
     let auth_filter = if props.auth {
         quote!{
-            let filter = <#ident as ::rocket_crud::CheckPermissions>::filter_list(&auth_user);
+            let filter = <#ident as ::rp1::CheckPermissions>::filter_list(&auth_user);
             let query = filter.apply(query);
         }
     } else {
@@ -47,7 +47,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
 
             Field::parse_named
                 .parse2(quote! {
-                    #ident: Vec<::rocket_crud::FilterOperator<#ty>>
+                    #ident: Vec<::rp1::FilterOperator<#ty>>
                 })
                 .unwrap()
         })
@@ -63,14 +63,14 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
                 quote! {
                     stringify!(#field_name) => {
                         if value == "" {
-                            match ::rocket_crud::FilterOperator::from_none(field_operator) {
+                            match ::rp1::FilterOperator::from_none(field_operator) {
                                 Ok(v) => self.spec.#field_name.push(v),
-                                Err(e) => self.errors.push(::rocket_crud::ParseError::from(e).into()),
+                                Err(e) => self.errors.push(::rp1::ParseError::from(e).into()),
                             }
                         } else {
-                            match ::rocket_crud::FilterOperator::try_parse_option(field_operator, value) {
+                            match ::rp1::FilterOperator::try_parse_option(field_operator, value) {
                                 Ok(v) => self.spec.#field_name.push(v),
-                                Err(e) => self.errors.push(::rocket_crud::ParseError::from(e).into()),
+                                Err(e) => self.errors.push(::rp1::ParseError::from(e).into()),
                             }
                         }
                     }
@@ -78,9 +78,9 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             } else {
                 quote! {
                     stringify!(#field_name) => {
-                        match ::rocket_crud::FilterOperator::try_parse(field_operator, value) {
+                        match ::rp1::FilterOperator::try_parse(field_operator, value) {
                             Ok(v) => self.spec.#field_name.push(v),
-                            Err(e) => self.errors.push(::rocket_crud::ParseError::from(e).into()),
+                            Err(e) => self.errors.push(::rp1::ParseError::from(e).into()),
                         }
                     }
                 }
@@ -95,7 +95,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
 
             quote! {
                 for op in filter.#ident.iter() {
-                    use ::rocket_crud::FilterOperator;
+                    use ::rp1::FilterOperator;
                     use #schema_path::#table_name::columns;
                     query = match op {
                         FilterOperator::Eq(val) => query.filter(columns::#ident.eq(val)),
@@ -134,7 +134,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             #(#filter_fields),*
         }
 
-        impl ::rocket_crud::CrudFilterSpec for #ident {
+        impl ::rp1::CrudFilterSpec for #ident {
             type FilterSpecType = #filter_ident;
         }
 
@@ -230,17 +230,17 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         #[::rocket::get("/?<sort>&<offset>&<limit>&<filter>")]
         async fn list_fn(
             db: #database_struct,
-            sort: Vec<::rocket_crud::SortSpec<SortableFields>>,
+            sort: Vec<::rp1::SortSpec<SortableFields>>,
             filter: #filter_ident,
             offset: Option<i64>,
             limit: Option<i64>,
             #auth_param
-        ) -> ::rocket_crud::CrudJsonResult<Vec<#ident>>
+        ) -> ::rp1::CrudJsonResult<Vec<#ident>>
         {
             let offset = i64::max(0, offset.unwrap_or(0));
             let limit = i64::max(1, i64::min(#max_limit, limit.unwrap_or(#max_limit)));
             let results = db.run(move |conn| {
-                use ::rocket_crud::SortDirection;
+                use ::rp1::SortDirection;
                 use ::diesel::expression::Expression;
                 let mut query = #schema_path::#table_name::table.offset(offset).limit(limit).into_boxed();
                 for sort_spec in sort {
@@ -261,7 +261,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
                 query.map(|q| q.load(conn))
             })
             .await
-            .ok_or_else(|| ::rocket_crud::CrudError::Forbidden)??;
+            .ok_or_else(|| ::rp1::CrudError::Forbidden)??;
 
             Ok(::rocket::serde::json::Json(results))
         }

@@ -31,8 +31,8 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
     };
     let auth_check = if props.auth {
         Some(quote!{
-            if !<#ident as ::rocket_crud::CheckPermissions>::allow_create(&value, &auth_user) {
-                return Err(::rocket_crud::CrudError::Forbidden);
+            if !<#ident as ::rp1::CheckPermissions>::allow_create(&value, &auth_user) {
+                return Err(::rp1::CrudError::Forbidden);
             }
         })
     } else {
@@ -48,7 +48,7 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
             db: #database_struct,
             value: #new_ident,
             #auth_param
-        ) -> ::rocket_crud::CrudJsonResult<#ident>
+        ) -> ::rp1::CrudJsonResult<#ident>
         {
             #auth_check
 
@@ -66,7 +66,7 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
             db: #database_struct,
             value: ::rocket::serde::json::Json<#new_ident>,
             #auth_param
-        ) -> ::rocket_crud::CrudJsonResult<#ident>
+        ) -> ::rp1::CrudJsonResult<#ident>
         {
             let value = value.into_inner();
             create_fn_help(db, value, #auth_pass).await
@@ -77,7 +77,7 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
             db: #database_struct,
             value: ::rocket::form::Form<#new_ident>,
             #auth_param
-        ) -> ::rocket_crud::CrudJsonResult<#ident>
+        ) -> ::rp1::CrudJsonResult<#ident>
         {
             let value = value.into_inner();
             create_fn_help(db, value, #auth_pass).await
@@ -121,7 +121,7 @@ fn derive_new_type(props: &CrudProps) -> TokenStream {
             #(#fields),*
         }
 
-        impl ::rocket_crud::CrudInsertable for #ident {
+        impl ::rp1::CrudInsertable for #ident {
             type InsertType = #new_ident;
         }
     };
@@ -134,7 +134,7 @@ pub(crate) fn derive_crud_without_create(props: &CrudProps) -> TokenStream {
         ..
     } = props;
     quote!{
-        impl ::rocket_crud::CrudInsertable for #ident {
+        impl ::rp1::CrudInsertable for #ident {
             type InsertType = ();
         }
     }

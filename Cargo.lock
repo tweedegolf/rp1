@@ -323,22 +323,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 
 [[package]]
-name = "example"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "diesel",
- "diesel_migrations",
- "dotenv",
- "rocket",
- "rocket-crud",
- "rocket_sync_db_pools",
- "serde",
- "serde_json",
- "validator",
-]
-
-[[package]]
 name = "figment"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1117,39 +1101,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rocket-crud"
-version = "0.1.0"
-dependencies = [
- "async-mutex",
- "chrono",
- "diesel",
- "diesel_migrations",
- "dotenv",
- "rocket",
- "rocket-crud",
- "rocket-crud-macros",
- "rocket_sync_db_pools",
- "serde",
- "serde_json",
- "thiserror",
- "validator",
-]
-
-[[package]]
-name = "rocket-crud-macros"
-version = "0.1.0"
-dependencies = [
- "Inflector",
- "darling",
- "diesel_derives",
- "impls",
- "proc-macro2",
- "quote",
- "syn",
- "validator",
-]
-
-[[package]]
 name = "rocket_codegen"
 version = "0.5.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1163,24 +1114,6 @@ dependencies = [
  "rocket_http",
  "syn",
  "unicode-xid",
-]
-
-[[package]]
-name = "rocket_crud_tests"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "diesel",
- "diesel_migrations",
- "dotenv",
- "rocket",
- "rocket-crud",
- "rocket_sync_db_pools",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "validator",
 ]
 
 [[package]]
@@ -1233,6 +1166,72 @@ checksum = "5267808c094db5366e1d8925aaf9f2ce05ff9b3bd92cb18c7040a1fe219c2e25"
 dependencies = [
  "devise",
  "quote",
+]
+
+[[package]]
+name = "rp1"
+version = "0.1.0"
+dependencies = [
+ "async-mutex",
+ "chrono",
+ "diesel",
+ "diesel_migrations",
+ "dotenv",
+ "rocket",
+ "rocket_sync_db_pools",
+ "rp1-macros",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "validator",
+]
+
+[[package]]
+name = "rp1-example"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "diesel",
+ "diesel_migrations",
+ "dotenv",
+ "rocket",
+ "rocket_sync_db_pools",
+ "rp1",
+ "serde",
+ "serde_json",
+ "validator",
+]
+
+[[package]]
+name = "rp1-macros"
+version = "0.1.0"
+dependencies = [
+ "Inflector",
+ "darling",
+ "diesel_derives",
+ "impls",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "validator",
+]
+
+[[package]]
+name = "rp1-tests"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "diesel",
+ "diesel_migrations",
+ "dotenv",
+ "rocket",
+ "rocket_sync_db_pools",
+ "rp1",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "validator",
 ]
 
 [[package]]
