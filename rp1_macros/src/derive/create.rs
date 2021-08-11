@@ -14,7 +14,7 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         ..
     } = props;
 
-    let validate = if cfg!(feature = "validator") {
+    let validate = if cfg!(feature = "validation") {
         Some(quote::quote! {
             use ::validator::Validate;
             value.validate()?;
@@ -100,7 +100,7 @@ fn derive_new_type(props: &CrudProps) -> TokenStream {
     let table_name = props.table_name.to_string();
     let fields = props.user_supplied_fields();
 
-    let derive_validate = if cfg!(feature = "validator") {
+    let derive_validate = if cfg!(feature = "validation") {
         Some(quote::quote! {
             #[derive(::validator::Validate)]
         })

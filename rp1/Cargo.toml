@@ -10,45 +10,26 @@ documentation = "https://docs.rs/rp1"
 repository = "https://github.com/tweedegolf/rp1"
 
 [dependencies]
+rp1-macros = { version = "0.1.0", path = "../rp1_macros/" }
 async-mutex = "1.4.0"
 chrono = "0.4.19"
-rocket = "0.5.0-rc.1"
+rocket = { version = "0.5.0-rc.1", features = ["json"] }
 serde = "1.0.126"
 serde_json = "1.0.64"
 thiserror = "1.0.25"
-
-# optional = true automatically creates feature flag "validator"
 validator = { version = "0.14.0", features = ["derive"], optional = true }
-
-[dependencies.diesel]
-version = "1.4.6"
-
-[dependencies.rp1-macros]
-version = "0.1.0"
-path = "../rp1_macros/"
+diesel = "1.4.6"
 
 [features]
-crud-validator = [ "validator", "rp1-macros/validator" ]
+default = ["validation"]
+validation = ["validator", "rp1-macros/validation"]
 
 [dev-dependencies]
 diesel_migrations = "1.4.0"
 dotenv = "0.15.0"
 serde = "1.0.126"
 serde_json = "1.0.64"
-
-[dev-dependencies.chrono]
-features = ["serde"]
-version = "0.4.19"
-
-[dev-dependencies.diesel]
-features = ["postgres", "r2d2", "chrono"]
-version = "1.4.6"
-
-[dev-dependencies.rocket]
-features = ["json"]
-version = "0.5.0-rc.1"
-
-[dev-dependencies.rocket_sync_db_pools]
-features = ["diesel_postgres_pool"]
-version = "0.1.0-rc.1"
-
+chrono = { version = "0.4.19", features = ["serde"] }
+diesel = { version = "1.4.6", features = ["postgres", "r2d2", "chrono"] }
+rocket = { version = "0.5.0-rc.1", features = ["json"] }
+rocket_sync_db_pools = { version = "0.1.0-rc.1", features = ["diesel_postgres_pool"] }

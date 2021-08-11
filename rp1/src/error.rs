@@ -62,6 +62,7 @@ pub enum CrudError {
     Forbidden,
     Example,
     DbError(::diesel::result::Error),
+    #[cfg(feature = "validation")]
     ValidationErrors(::validator::ValidationErrors),
 }
 
@@ -71,6 +72,7 @@ impl From<::diesel::result::Error> for CrudError {
     }
 }
 
+#[cfg(feature = "validation")]
 impl From<::validator::ValidationErrors> for CrudError {
     fn from(e: ::validator::ValidationErrors) -> Self {
         CrudError::ValidationErrors(e)
@@ -85,6 +87,7 @@ impl CrudError {
             CrudError::Forbidden => Status::Forbidden,
             CrudError::DbError(::diesel::result::Error::NotFound) => Status::NotFound,
             CrudError::DbError(_) => Status::InternalServerError,
+            #[cfg(feature = "validation")]
             CrudError::ValidationErrors(_) => Status::BadRequest,
         }
     }

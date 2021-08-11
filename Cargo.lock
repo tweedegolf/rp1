@@ -592,12 +592,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f7280c75fb2e2fc47080ec80ccc481376923acb04501957fc38f935c3de5088"
 
 [[package]]
-name = "impls"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a46645bbd70538861a90d0f26c31537cdf1e44aae99a794fb75a664b70951bc"
-
-[[package]]
 name = "indexmap"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1193,7 +1187,6 @@ dependencies = [
  "chrono",
  "diesel",
  "diesel_migrations",
- "dotenv",
  "rocket",
  "rocket_sync_db_pools",
  "rp1",
@@ -1209,11 +1202,9 @@ dependencies = [
  "Inflector",
  "darling",
  "diesel_derives",
- "impls",
  "proc-macro2",
  "quote",
  "syn",
- "validator",
 ]
 
 [[package]]
