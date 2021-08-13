@@ -1,6 +1,6 @@
 services:
   psql:
-    image: docker.tgrep.nl/docker/postgres:13
+    image: postgres:13
     command: ["postgres", "-c", "log_statement=all"]
     ports: ["127.0.0.1:5432:5432"]
     environment:

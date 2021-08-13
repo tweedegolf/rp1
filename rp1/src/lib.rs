@@ -1,16 +1,4 @@
-//! `rp1` is a [diesel] based CRUD for [rocket]. `rp1` is
-//! intented as a quick starting point. It allows you to quickly scaffold a
-//! basic application and should implement all basic functionality you may
-//! expect from a basic Create-Read-Update-Delete cycle.
-//!
-//! Writing an application using `rp1` starts by defining your database
-//! schema using [diesel]. Based on this schema and a model struct (which
-//! in diesel are normally intended for querying) `rp1` will generate
-//! some routes and handlers that you can directly plug into your rocket
-//! application.
-//!
-//! To get started, read the details of the [crud] macro to see some basic
-//! usage and an explanation of all parameters.
+#![doc = include_str!("../docs/lib.md")]
 
 mod error;
 mod filter;

@@ -1,0 +1,86 @@
+RP1 is a [Diesel] based CRUD for [Rocket]. To get started with RP1 you can read
+the project setup below, which will guide to through setting up a basic
+application. If you already have a running rocket/diesel application you should
+continue with reading the docs for the [crud] macro, which will explain the
+basic setup and explain all options that the crud generation has.
+
+[Diesel]: https://diesel.rs/
+[Rocket]: https://rocket.rs/
+
+## Project setup
+To get started, you will need to add a few dependencies to your `Cargo.toml`.
+Note that if you don't need timestamp support in your database you can remove
+the `chrono` dependency and `chrono` feature from diesel.
+
+```toml
+[dependencies]
+rp1 = "0.1.0"
+diesel = { version = "1.4.6", features = ["postgres", "r2d2", "chrono"] }
+diesel_migrations = "1.4.0"
+rocket = "0.5.0-rc.1"
+rocket_sync_db_pools = { version = "0.1.0-rc.1", features = ["diesel_postgres_pool"] }
+serde = "1.0.127"
+serde_json = "1.0.66"
+chrono = { version = "0.4.19", features = ["serde"] }
+validator = "0.14.0"
+```
+
+Next, make sure you have installed the diesel cli. To do this, you can run
+
+```bash
+cargo install diesel_cli --no-default-features --features postgres
+```
+
+If you need to have support for all database types supported by diesel you can
+run `cargo install diesel_cli` instead. Do make sure you installed the relevant
+libraries for the databases you intend to use (e.g. for debian based OSes make
+sure you installed `libpq-dev`). You should now also start a postgresql server.
+For the example in this repository we have a docker-compose.yml file that you
+can use to start a simple PostgreSQL development server using docker-compose.
+
+Next, create a file `.env` and add the `DATABASE_URL` environment variable. If
+you used the `docker-compose.yml` file then it should read:
+
+```bash
+DATABASE_URL=postgres://crud@127.0.0.1:5432/crud
+```
+
+Now we are ready to run `diesel setup` which will create an initial migration
+and get us ready to define our database schema. Start by adding your initial
+migration using `diesel migration generate <name>`. After you completed your
+migration run `diesel migration run` and a `schema.rs` file should appear.
+
+Next, update your `main.rs` file to read:
+
+```rust
+#[macro_use]
+extern crate diesel;
+
+mod schema;
+
+use rocket_sync_db_pools::database;
+
+#[database("diesel")]
+struct Db(diesel::PgConnection);
+
+#[rocket::launch]
+fn rocket() -> _ {
+    rocket::build()
+        .attach(Db::fairing())
+}
+```
+
+Note the `#[macro_use] extern crate diesel;` and `mod schema` specifically for
+Diesel, and the `struct Db` and `fn rocket` which are used by Rocket to
+communicate with Diesel. Finally, we need to configure rocket to use the same
+database as the diesel-cli. To do this, create a file `Rocket.toml` and place
+the following configuration in it (replacing the database URL with your own):
+
+```toml
+[global.databases]
+diesel = { url = "postgres://crud@127.0.0.1:5432/crud" }
+```
+
+Now, you should be able to run `cargo run` and your project should start! You
+are finally ready for your first RP1 struct. To get started with your first
+RP1 struct, you should take a look at the documentation for the [crud] macro.

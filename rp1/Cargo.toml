@@ -8,6 +8,7 @@ description = "Easily generate a REST-like CRUD API using Rocket and Diesel"
 homepage = "https://github.com/tweedegolf/rp1"
 documentation = "https://docs.rs/rp1"
 repository = "https://github.com/tweedegolf/rp1"
+readme = "../README.md"
 
 [dependencies]
 rp1-macros = { version = "0.1.0", path = "../rp1_macros/" }
