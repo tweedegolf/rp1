@@ -37,7 +37,7 @@ impl CheckPermissions for Comment {
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rp1::crud(database = "Db", table_name = "users")]
+#[rp1::crud(database = "Db", table = "users")]
 #[derive(Debug, serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
@@ -51,7 +51,7 @@ struct User {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rp1::crud(database = "Db", table_name = "posts")]
+#[rp1::crud(database = "Db", table = "posts")]
 #[derive(Debug, serde::Serialize, diesel::Queryable)]
 struct Post {
     #[primary_key]
@@ -66,7 +66,7 @@ struct Post {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rp1::crud(database = "Db", table_name = "comments")]
+#[rp1::crud(database = "Db", table = "comments")]
 #[derive(Debug, serde::Serialize, diesel::Queryable)]
 struct Comment {
     #[primary_key]

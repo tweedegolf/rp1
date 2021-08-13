@@ -29,7 +29,7 @@ fn clear_database() {
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rp1::crud(database = "Db", table_name = "users", auth = false)]
+#[rp1::crud(database = "Db", table = "users", auth = false)]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, diesel::Queryable)]
 struct User {
     #[primary_key]

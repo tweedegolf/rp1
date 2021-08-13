@@ -17,8 +17,8 @@ pub enum AUser {
     Anonymous,
 }
 
-#[rp1::crud(database = "Db", table_name = "users", auth = false)]
-#[derive(serde::Serialize, diesel::Queryable, rp1::validator::Validate)]
+#[rp1::crud(database = "Db", table = "users", auth = false)]
+#[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
     id: i32,
@@ -31,7 +31,7 @@ struct User {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rp1::crud(database = "Db", table_name = "posts", auth = false)]
+#[rp1::crud(database = "Db", table = "posts", auth = false)]
 #[derive(serde::Serialize, diesel::Queryable)]
 struct Post {
     #[primary_key]
@@ -46,7 +46,7 @@ struct Post {
     updated_at: chrono::NaiveDateTime,
 }
 
-#[rp1::crud(database = "Db", table_name = "comments", auth = false)]
+#[rp1::crud(database = "Db", table = "comments", auth = false)]
 #[derive(serde::Serialize, diesel::Queryable)]
 struct Comment {
     #[primary_key]

@@ -155,7 +155,7 @@ impl TryFrom<&Field> for CrudField {
 #[derive(Debug, FromMeta)]
 pub struct CrudPropsBuilder {
     #[darling(rename = "database")]
-    database_struct: Path,
+    database_struct: Option<Path>,
     #[darling(default, rename = "schema")]
     schema_path: Option<Path>,
     #[darling(default = "enabled")]
@@ -170,7 +170,7 @@ pub struct CrudPropsBuilder {
     list: bool,
     #[darling(default, rename = "module")]
     module_name: Option<Ident>,
-    #[darling(default)]
+    #[darling(default, rename = "table")]
     table_name: Option<Ident>,
     #[darling(default)]
     max_limit: Option<i64>,
@@ -204,7 +204,7 @@ impl CrudPropsBuilder {
         });
 
         Ok(CrudProps {
-            database_struct: self.database_struct,
+            database_struct: self.database_struct.unwrap_or_else(|| format_ident!("Db").into()),
             schema_path: self
                 .schema_path
                 .unwrap_or_else(|| syn::parse_str("crate::schema").unwrap()),
@@ -212,15 +212,14 @@ impl CrudPropsBuilder {
             new_ident: format_ident!("New{}", &item.ident),
             update_ident: format_ident!("Update{}", &item.ident),
             filter_ident: format_ident!("{}FilterSpec", &item.ident),
-            module_name: self.module_name.unwrap_or_else(|| {
-                Ident::new(&to_snake_case(&item.ident.to_string()), Span::call_site())
-            }),
+            module_name: self
+                .module_name
+                .unwrap_or_else(|| format_ident!("{}", to_snake_case(&item.ident.to_string()))),
             create: self.create,
             read: self.read,
             list: self.list,
             update: self.update,
             delete: self.delete,
-
             table_name: self
                 .table_name
                 .unwrap_or_else(|| format_ident!("{}", to_snake_case(&item.ident.to_string()))),

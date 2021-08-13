@@ -7,7 +7,7 @@ use rocket_sync_db_pools::database;
 #[database("diesel")]
 struct Db(diesel::PgConnection);
 
-#[rp1::crud(database = "Db", table_name = "users", auth = false)]
+#[rp1::crud(database = "Db", table = "users", auth = false)]
 #[derive(
     Debug,
     Clone,
@@ -16,7 +16,7 @@ struct Db(diesel::PgConnection);
     serde::Deserialize,
     serde::Serialize,
     diesel::Queryable,
-    rp1::validator::Validate,
+    validator::Validate,
 )]
 struct User {
     #[primary_key]

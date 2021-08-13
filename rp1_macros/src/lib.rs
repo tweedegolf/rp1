@@ -10,7 +10,7 @@ pub(crate) use error::*;
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, AttributeArgs};
 
-/// Attribute macro and main entrypoint for enabling CRUD generation.
+#[doc = include_str!("../docs/crud.md")]
 #[proc_macro_attribute]
 pub fn crud(args: TokenStream, item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as AttributeArgs);

@@ -10,8 +10,6 @@ pub mod access_control;
 
 use ::rocket::serde::json::Json;
 
-pub extern crate validator;
-
 pub use access_control::*;
 pub use error::*;
 pub use filter::*;
