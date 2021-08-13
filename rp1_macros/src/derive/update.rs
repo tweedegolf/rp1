@@ -39,7 +39,7 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         None
     };
 
-    let validate = if cfg!(feature = "validator") {
+    let validate = if cfg!(feature = "validation") {
         Some(quote::quote! {
             use ::validator::Validate;
             value.validate()?;
@@ -113,7 +113,7 @@ fn derive_update_type(props: &CrudProps) -> TokenStream {
         ..
     } = props;
 
-    let derive_validate = if cfg!(feature = "validator") {
+    let derive_validate = if cfg!(feature = "validation") {
         Some(quote! {
             #[derive(::validator::Validate)]
         })

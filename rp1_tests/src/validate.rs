@@ -16,7 +16,7 @@ struct Db(diesel::PgConnection);
     serde::Deserialize,
     serde::Serialize,
     diesel::Queryable,
-    validator::Validate,
+    rp1::validator::Validate,
 )]
 struct User {
     #[primary_key]

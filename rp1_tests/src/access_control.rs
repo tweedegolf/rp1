@@ -18,7 +18,7 @@ pub enum AUser {
 }
 
 #[rp1::crud(database = "Db", table_name = "users", auth = false)]
-#[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
+#[derive(serde::Serialize, diesel::Queryable, rp1::validator::Validate)]
 struct User {
     #[primary_key]
     id: i32,

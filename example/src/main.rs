@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate diesel;
 
-extern crate rocket;
-
 mod schema;
 
 use diesel::backend::Backend;
