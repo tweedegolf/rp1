@@ -51,7 +51,7 @@ the `chrono` dependency and `chrono` feature from diesel.
 
 ```toml
 [dependencies]
-rp1 = "0.2.0"
+rp1 = "0.2.1"
 diesel = { version = "1.4.6", features = ["postgres", "r2d2", "chrono"] }
 diesel_migrations = "1.4.0"
 rocket = "0.5.0-rc.1"

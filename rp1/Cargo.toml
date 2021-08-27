@@ -1,6 +1,6 @@
 [package]
 name = "rp1"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Ruben Nijveld <ruben@tweedegolf.com>", "Folkert <folkert@folkertdev.nl>"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
@@ -11,7 +11,7 @@ repository = "https://github.com/tweedegolf/rp1"
 readme = "../README.md"
 
 [dependencies]
-rp1-macros = { version = "0.2.0", path = "../rp1_macros/" }
+rp1-macros = { version = "0.2.1", path = "../rp1_macros/" }
 async-mutex = "1.4.0"
 chrono = "0.4.19"
 rocket = { version = "0.5.0-rc.1", features = ["json"] }
