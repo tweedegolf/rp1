@@ -32,6 +32,14 @@ Accept: application/json
 ###
 
 POST http://localhost:8000/users HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+Accept: application/json
+
+username=ruben@tweedegolf.com&role=ADMIN
+
+###
+
+POST http://localhost:8000/users HTTP/1.1
 Content-Type: application/json
 Accept: application/json
 

@@ -72,7 +72,7 @@ pub(crate) fn derive_crud_create(props: &CrudProps) -> (TokenStream, Vec<Ident>)
             create_fn_help(db, value, #auth_pass).await
         }
 
-        #[::rocket::post("/form", data = "<value>")]
+        #[::rocket::post("/", format = "form", data = "<value>")]
         async fn create_fn_form(
             db: #database_struct,
             value: ::rocket::form::Form<#new_ident>,

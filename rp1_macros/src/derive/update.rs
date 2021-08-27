@@ -82,7 +82,7 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
             update_fn_help(db, id, value, #auth_pass).await
         }
 
-        #[::rocket::patch("/form/<id>", data = "<value>")]
+        #[::rocket::patch("/<id>", format = "form", data = "<value>")]
         async fn update_fn_form(
             db: #database_struct,
             id: #primary_type,
