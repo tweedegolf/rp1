@@ -12,25 +12,20 @@ readme = "../README.md"
 
 [dependencies]
 rp1-macros = { version = "0.2.1", path = "../rp1_macros/" }
-async-mutex = "1.4.0"
-chrono = "0.4.19"
 rocket = { version = "0.5.0-rc.1", features = ["json"] }
-serde = "1.0.126"
-serde_json = "1.0.64"
-thiserror = "1.0.25"
-validator = { version = "0.14.0", features = ["derive"], optional = true }
-diesel = "1.4.6"
+time = { version = "0.3", features = ["serde-human-readable", "macros"] }
+serde = "1.0"
+serde_json = "1.0"
+thiserror = "1.0"
+validator = { version = "0.14", features = ["derive"], optional = true }
+diesel = "1.4"
 
 [features]
 default = ["validation"]
 validation = ["validator", "rp1-macros/validation"]
 
 [dev-dependencies]
-diesel_migrations = "1.4.0"
-dotenv = "0.15.0"
-serde = "1.0.126"
-serde_json = "1.0.64"
-chrono = { version = "0.4.19", features = ["serde"] }
-diesel = { version = "1.4.6", features = ["postgres", "r2d2", "chrono"] }
-rocket = { version = "0.5.0-rc.1", features = ["json"] }
+diesel_migrations = "1.4"
+dotenv = "0.15"
+diesel = { version = "1.4", features = ["postgres", "r2d2", "chrono"] }
 rocket_sync_db_pools = { version = "0.1.0-rc.1", features = ["diesel_postgres_pool"] }

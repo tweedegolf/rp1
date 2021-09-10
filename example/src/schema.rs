@@ -17,6 +17,8 @@ table! {
         title -> Varchar,
         subtitle -> Nullable<Varchar>,
         content -> Text,
+        publish_date -> Date,
+        publish_time -> Time,
         user_id -> Int4,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
@@ -37,4 +39,8 @@ joinable!(comments -> posts (post_id));
 joinable!(comments -> users (user_id));
 joinable!(posts -> users (user_id));
 
-allow_tables_to_appear_in_same_query!(comments, posts, users,);
+allow_tables_to_appear_in_same_query!(
+    comments,
+    posts,
+    users,
+);

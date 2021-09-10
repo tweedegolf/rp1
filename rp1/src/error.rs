@@ -1,4 +1,3 @@
-use chrono::ParseError as ChronoParseError;
 use rocket::form::error::ErrorKind as FormErrorKind;
 use rocket::http::{ContentType, Status};
 use rocket::response::Responder;
@@ -17,8 +16,8 @@ pub enum ParseError {
     #[error("Could not parse boolean")]
     BoolError(ParseBoolError),
 
-    #[error("Could not parse timestamp")]
-    ChronoError(ChronoParseError),
+    #[error("Could not parse date/time value")]
+    TimeError(::time::Error),
 
     #[error("An infallible conversion somehow failed")]
     Infallible,
@@ -39,9 +38,9 @@ impl From<ParseBoolError> for ParseError {
     }
 }
 
-impl From<ChronoParseError> for ParseError {
-    fn from(e: ChronoParseError) -> Self {
-        ParseError::ChronoError(e)
+impl From<::time::Error> for ParseError {
+    fn from(e: ::time::Error) -> Self {
+        ParseError::TimeError(e)
     }
 }
 
