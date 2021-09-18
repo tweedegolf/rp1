@@ -3,10 +3,10 @@
 #[macro_use]
 extern crate diesel;
 
+pub mod datetime;
 mod error;
 mod filter;
 mod sort;
-pub mod datetime;
 
 pub mod helper;
 
