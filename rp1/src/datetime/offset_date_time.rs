@@ -13,6 +13,11 @@ use time;
 use time::format_description::well_known::Rfc3339;
 use time::macros::datetime;
 
+/// An OffsetDateTime from [time] wrapper that can be used in diesel, serde and rocket contexts.
+/// See [time::OffsetDateTime] for more details on how to use the datetime itself.
+///
+/// Note that you should prefer an `OffsetDateTime` over a [super::PrimitiveDateTime].
+/// This type can only be implemented on an SQL column that stores timezone information.
 #[derive(serde::Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, FromSqlRow, AsExpression)]
 #[sql_type = "diesel::sql_types::Timestamptz"]
 pub struct OffsetDateTime(time::OffsetDateTime);
@@ -86,5 +91,17 @@ impl serde::Serialize for OffsetDateTime {
         S: serde::Serializer,
     {
         serializer.serialize_str(&self.0.format(&Rfc3339).unwrap())
+    }
+}
+
+impl From<time::OffsetDateTime> for OffsetDateTime {
+    fn from(d: time::OffsetDateTime) -> Self {
+        Self(d)
+    }
+}
+
+impl Into<time::OffsetDateTime> for OffsetDateTime {
+    fn into(self) -> time::OffsetDateTime {
+        self.0
     }
 }

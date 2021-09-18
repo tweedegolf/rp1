@@ -13,6 +13,8 @@ use serde::{Deserialize, Deserializer};
 use time;
 use time::macros::format_description;
 
+/// A Time from [time] wrapper that can be used in diesel, serde and rocket contexts.
+/// See [time::Time] for more details on how to use the time itself.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, FromSqlRow, AsExpression)]
 #[sql_type = "diesel::sql_types::Time"]
 pub struct Time(time::Time);
@@ -139,5 +141,17 @@ impl<'de> Deserialize<'de> for Time {
         D: Deserializer<'de>,
     {
         deserializer.deserialize_str(TimeVisitor)
+    }
+}
+
+impl From<time::Time> for Time {
+    fn from(t: time::Time) -> Self {
+        Self(t)
+    }
+}
+
+impl Into<time::Time> for Time {
+    fn into(self) -> time::Time {
+        self.0
     }
 }

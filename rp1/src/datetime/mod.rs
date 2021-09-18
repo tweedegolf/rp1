@@ -1,3 +1,6 @@
+//! Date and time helpers that can be used in both diesel, serde and rocket
+//! contexts.
+
 mod date;
 mod offset_date_time;
 mod primitive_date_time;

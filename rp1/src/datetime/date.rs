@@ -14,6 +14,8 @@ use serde::{Deserialize, Deserializer};
 use time;
 use time::macros::format_description;
 
+/// A Date from [time] wrapper that can be used in diesel, serde and rocket contexts.
+/// See [time::Date] for more details on how to use the date itself.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, FromSqlRow, AsExpression)]
 #[sql_type = "diesel::sql_types::Date"]
 pub struct Date(time::Date);
@@ -122,5 +124,17 @@ impl<'de> Deserialize<'de> for Date {
         D: Deserializer<'de>,
     {
         deserializer.deserialize_str(DateVisitor)
+    }
+}
+
+impl From<time::Date> for Date {
+    fn from(d: time::Date) -> Self {
+        Self(d)
+    }
+}
+
+impl Into<time::Date> for Date {
+    fn into(self) -> time::Date {
+        self.0
     }
 }
