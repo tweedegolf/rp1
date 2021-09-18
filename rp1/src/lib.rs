@@ -1,5 +1,9 @@
 #![doc = include_str!("../docs/lib.md")]
 
+#[macro_use]
+extern crate diesel;
+
+pub mod datetime;
 mod error;
 mod filter;
 mod sort;

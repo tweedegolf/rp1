@@ -204,7 +204,9 @@ impl CrudPropsBuilder {
         });
 
         Ok(CrudProps {
-            database_struct: self.database_struct.unwrap_or_else(|| format_ident!("Db").into()),
+            database_struct: self
+                .database_struct
+                .unwrap_or_else(|| format_ident!("Db").into()),
             schema_path: self
                 .schema_path
                 .unwrap_or_else(|| syn::parse_str("crate::schema").unwrap()),

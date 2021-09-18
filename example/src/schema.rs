@@ -17,6 +17,8 @@ table! {
         title -> Varchar,
         subtitle -> Nullable<Varchar>,
         content -> Text,
+        publish_date -> Date,
+        publish_time -> Time,
         user_id -> Int4,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,

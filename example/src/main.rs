@@ -46,9 +46,9 @@ struct User {
     username: String,
     role: String,
     #[generated]
-    created_at: chrono::NaiveDateTime,
+    created_at: rp1::datetime::OffsetDateTime,
     #[generated]
-    updated_at: chrono::NaiveDateTime,
+    updated_at: rp1::datetime::OffsetDateTime,
 }
 
 #[rp1::crud(database = "Db", table = "posts")]
@@ -59,11 +59,13 @@ struct Post {
     title: String,
     subtitle: Option<String>,
     content: String,
+    publish_date: rp1::datetime::Date,
+    publish_time: rp1::datetime::Time,
     user_id: i32,
     #[generated]
-    created_at: chrono::NaiveDateTime,
+    created_at: rp1::datetime::OffsetDateTime,
     #[generated]
-    updated_at: chrono::NaiveDateTime,
+    updated_at: rp1::datetime::OffsetDateTime,
 }
 
 #[rp1::crud(database = "Db", table = "comments")]
@@ -79,9 +81,9 @@ struct Comment {
     user_id: Option<i32>,
     anonymous_user: Option<String>,
     #[generated]
-    created_at: chrono::NaiveDateTime,
+    created_at: rp1::datetime::OffsetDateTime,
     #[generated]
-    updated_at: chrono::NaiveDateTime,
+    updated_at: rp1::datetime::OffsetDateTime,
 }
 
 #[rocket::launch]
