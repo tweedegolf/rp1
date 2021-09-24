@@ -16,7 +16,7 @@ use time::macros::format_description;
 
 /// A Date from [time] wrapper that can be used in diesel, serde and rocket contexts.
 /// See [time::Date] for more details on how to use the date itself.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, FromSqlRow, AsExpression)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, FromSqlRow, AsExpression)]
 #[sql_type = "diesel::sql_types::Date"]
 pub struct Date(time::Date);
 

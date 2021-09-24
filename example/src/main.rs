@@ -38,7 +38,6 @@ impl CheckPermissions for Comment {
 struct Db(diesel::PgConnection);
 
 #[rp1::crud(database = "Db", table = "users")]
-#[derive(Debug, serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
     pub id: i32,
@@ -52,7 +51,6 @@ struct User {
 }
 
 #[rp1::crud(database = "Db", table = "posts")]
-#[derive(Debug, serde::Serialize, diesel::Queryable)]
 struct Post {
     #[primary_key]
     id: i32,
@@ -69,7 +67,6 @@ struct Post {
 }
 
 #[rp1::crud(database = "Db", table = "comments")]
-#[derive(Debug, serde::Serialize, diesel::Queryable)]
 struct Comment {
     #[primary_key]
     id: i32,

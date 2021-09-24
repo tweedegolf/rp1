@@ -64,7 +64,24 @@ Content-Type: application/json
 
 ###
 
-PATCH http://localhost:8000/posts/3 HTTP/1.1
+PUT http://localhost:8000/posts/15 HTTP/1.1
+Content-Type: application/json
+
+{
+  "id": 15,
+  "title": "Second post",
+  "subtitle": null,
+  "content": "This is the second post!",
+  "publish_date": "2021-01-01",
+  "publish_time": "00:00:00",
+  "user_id": 1,
+  "created_at": "2021-09-24T15:55:03.408122Z",
+  "updated_at": "2021-09-24T15:55:03.408122Z"
+}
+
+###
+
+PATCH http://localhost:8000/posts/14 HTTP/1.1
 Content-Type: application/json
 
 {

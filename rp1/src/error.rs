@@ -63,6 +63,7 @@ pub enum CrudError {
     DbError(::diesel::result::Error),
     #[cfg(feature = "validation")]
     ValidationErrors(::validator::ValidationErrors),
+    UnchangeableField(String),
 }
 
 impl From<::diesel::result::Error> for CrudError {
@@ -88,6 +89,7 @@ impl CrudError {
             CrudError::DbError(_) => Status::InternalServerError,
             #[cfg(feature = "validation")]
             CrudError::ValidationErrors(_) => Status::BadRequest,
+            CrudError::UnchangeableField(_) => Status::BadRequest,
         }
     }
 }

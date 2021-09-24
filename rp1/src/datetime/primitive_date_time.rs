@@ -9,6 +9,8 @@ use diesel::pg::Pg;
 use diesel::serialize::{Output, ToSql};
 use diesel::sql_types;
 use rocket::form::{FromFormField, ValueField};
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer};
 use time;
 use time::format_description::well_known::Rfc3339;
 use time::macros::datetime;
@@ -17,7 +19,7 @@ use time::macros::datetime;
 /// See [time::PrimitiveDateTime] for more details on how to use the datetime itself.
 ///
 /// Note that you should prefer an `PrimitiveDateTime` over a [super::OffsetDateTime].
-#[derive(serde::Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, FromSqlRow, AsExpression)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, FromSqlRow, AsExpression)]
 #[sql_type = "diesel::sql_types::Timestamp"]
 #[sql_type = "diesel::sql_types::Timestamptz"]
 pub struct PrimitiveDateTime(time::PrimitiveDateTime);
@@ -91,6 +93,39 @@ impl serde::Serialize for PrimitiveDateTime {
         S: serde::Serializer,
     {
         serializer.serialize_str(&self.0.format(&Rfc3339).unwrap())
+    }
+}
+
+struct PrimitiveDateTimeVisitor;
+
+impl<'de> Visitor<'de> for PrimitiveDateTimeVisitor {
+    type Value = PrimitiveDateTime;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a datetime in RFC3339 format")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        PrimitiveDateTime::from_str(v).map_err(|e| E::custom(format!("invalid datetime: {}", e)))
+    }
+
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        PrimitiveDateTime::from_str(&v).map_err(|e| E::custom(format!("invalid datetime: {}", e)))
+    }
+}
+
+impl<'de> Deserialize<'de> for PrimitiveDateTime {
+    fn deserialize<D>(deserializer: D) -> Result<PrimitiveDateTime, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(PrimitiveDateTimeVisitor)
     }
 }
 

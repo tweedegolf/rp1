@@ -42,7 +42,8 @@ pub trait CrudInsertable {
 /// Note that if the `update` action is disabled this type will be implemented
 /// with a unit (`()`) update type.
 pub trait CrudUpdatable {
-    type UpdateType;
+    type PatchType;
+    type PutType;
 }
 
 /// This trait is implemented on the main struct and indicates the type that

@@ -69,6 +69,7 @@ pub fn crud_impl(args: AttributeArgs, item: TokenStream) -> crate::Result {
             use #schema_path::#table_name;
 
             #(#attrs)*
+            #[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
             pub struct #ident #generics {
                 #(#fields),*
             }

@@ -54,7 +54,7 @@ pub struct CrudField {
 }
 
 impl CrudField {
-    pub fn as_update_field(&self) -> CrudField {
+    pub fn as_patch_field(&self) -> CrudField {
         let mut cloned = self.clone();
         if self.is_option {
             let attr = Attribute {
@@ -212,7 +212,8 @@ impl CrudPropsBuilder {
                 .unwrap_or_else(|| syn::parse_str("crate::schema").unwrap()),
             ident: item.ident.clone(),
             new_ident: format_ident!("New{}", &item.ident),
-            update_ident: format_ident!("Update{}", &item.ident),
+            patch_ident: format_ident!("UpdatePatch{}", &item.ident),
+            put_ident: format_ident!("UpdatePut{}", &item.ident),
             filter_ident: format_ident!("{}FilterSpec", &item.ident),
             module_name: self
                 .module_name
@@ -249,7 +250,8 @@ pub struct CrudProps {
     pub(crate) module_name: Ident,
     pub(crate) ident: Ident,
     pub(crate) new_ident: Ident,
-    pub(crate) update_ident: Ident,
+    pub(crate) patch_ident: Ident,
+    pub(crate) put_ident: Ident,
     pub(crate) filter_ident: Ident,
     pub(crate) table_name: Ident,
     pub(crate) primary_type: Type,
@@ -268,10 +270,20 @@ impl CrudProps {
         self.fields.iter().filter(|f| f.is_filterable)
     }
 
-    pub(crate) fn updatable_fields(&self) -> Vec<CrudField> {
+    pub(crate) fn patch_fields(&self) -> Vec<CrudField> {
         self.user_supplied_fields()
-            .map(|f| f.as_update_field())
+            .map(|f| f.as_patch_field())
             .collect()
+    }
+
+    pub(crate) fn non_user_supplied_fields(&self) -> impl Iterator<Item = &CrudField> {
+        self.fields
+            .iter()
+            .filter(|f| f.is_generated || f.is_primary_key)
+    }
+
+    pub(crate) fn put_fields(&self) -> impl Iterator<Item = &CrudField> {
+        self.fields.iter()
     }
 
     pub(crate) fn user_supplied_fields(&self) -> impl Iterator<Item = &CrudField> {

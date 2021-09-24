@@ -71,7 +71,7 @@ where
     /// This function should return a boolean indicating if the user has access
     /// to update the existing item (`self`) to the new given item. By default
     /// all updates are allowed.
-    fn allow_update(&self, _new: &<Self as CrudUpdatable>::UpdateType, _: &Self::AuthUser) -> bool {
+    fn allow_update(&self, _new: &<Self as CrudUpdatable>::PutType, _: &Self::AuthUser) -> bool {
         true
     }
 

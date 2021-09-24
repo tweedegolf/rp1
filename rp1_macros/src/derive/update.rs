@@ -8,14 +8,15 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
     let CrudProps {
         database_struct,
         ident,
-        update_ident,
+        patch_ident,
+        put_ident,
         schema_path,
         table_name,
         primary_type,
         ..
     } = props;
 
-    let update_type = derive_update_type(props);
+    let update_types = derive_update_types(props);
 
     let auth_param = derive_auth_param(props);
     let auth_pass = if props.auth {
@@ -23,7 +24,16 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
     } else {
         None
     };
-    let auth_check = if props.auth {
+    let auth_put_check = if props.auth {
+        Some(quote! {
+            if !<#ident as ::rp1::CheckPermissions>::allow_update(&row, &value, &auth_user) {
+                return Err(::rp1::CrudError::NotFound);
+            }
+        })
+    } else {
+        None
+    };
+    let auth_patch_check = if props.auth {
         Some(quote! {
             let row = db.run(move |conn| {
                 #schema_path::#table_name::table
@@ -31,7 +41,8 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
                     .first::<#ident>(conn)
             })
             .await?;
-            if !<#ident as ::rp1::CheckPermissions>::allow_update(&row, &value, &auth_user) {
+            let put_value = #put_ident::create(&row, &value);
+            if !<#ident as ::rp1::CheckPermissions>::allow_update(&row, &put_value, &auth_user) {
                 return Err(::rp1::CrudError::NotFound);
             }
         })
@@ -49,16 +60,44 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
     };
 
     let tokens = quote! {
-        #update_type
+        #update_types
 
-        async fn update_fn_help(
+        async fn update_put_fn_help(
             db: #database_struct,
             id: #primary_type,
-            value: #update_ident,
+            value: #put_ident,
             #auth_param
         ) -> ::rp1::CrudJsonResult<#ident>
         {
-            #auth_check
+            let row = db.run(move |conn| {
+                #schema_path::#table_name::table
+                    .find(id)
+                    .first::<#ident>(conn)
+            })
+            .await?;
+
+            #auth_put_check
+
+            value.validate_update(&row)?;
+
+            #validate
+
+            Ok(::rocket::serde::json::Json(db.run(move |conn| {
+                diesel::update(#schema_path::#table_name::table.find(id))
+                    .set(&value)
+                    .get_result(conn)
+            })
+            .await?))
+        }
+
+        async fn update_patch_fn_help(
+            db: #database_struct,
+            id: #primary_type,
+            value: #patch_ident,
+            #auth_param
+        ) -> ::rp1::CrudJsonResult<#ident>
+        {
+            #auth_patch_check
 
             #validate
 
@@ -71,45 +110,81 @@ pub(crate) fn derive_crud_update(props: &CrudProps) -> (TokenStream, Vec<Ident>)
         }
 
         #[::rocket::patch("/<id>", format = "json", data = "<value>")]
-        async fn update_fn_json(
+        async fn update_patch_fn_json(
             db: #database_struct,
             id: #primary_type,
-            value: ::rocket::serde::json::Json<#update_ident>,
+            value: ::rocket::serde::json::Json<#patch_ident>,
             #auth_param
         ) -> ::rp1::CrudJsonResult<#ident>
         {
             let value = value.into_inner();
-            update_fn_help(db, id, value, #auth_pass).await
+            update_patch_fn_help(db, id, value, #auth_pass).await
         }
 
         #[::rocket::patch("/<id>", format = "form", data = "<value>")]
-        async fn update_fn_form(
+        async fn update_patch_fn_form(
             db: #database_struct,
             id: #primary_type,
-            value: ::rocket::form::Form<#update_ident>,
+            value: ::rocket::form::Form<#patch_ident>,
             #auth_param
         ) -> ::rp1::CrudJsonResult<#ident>
         {
             let value = value.into_inner();
-            update_fn_help(db, id, value, #auth_pass).await
+            update_patch_fn_help(db, id, value, #auth_pass).await
+        }
+
+        #[::rocket::put("/<id>", format = "json", data = "<value>")]
+        async fn update_put_fn_json(
+            db: #database_struct,
+            id: #primary_type,
+            value: ::rocket::serde::json::Json<#put_ident>,
+            #auth_param
+        ) -> ::rp1::CrudJsonResult<#ident>
+        {
+            let value = value.into_inner();
+            update_put_fn_help(db, id, value, #auth_pass).await
+        }
+
+        #[::rocket::put("/<id>", format = "form", data = "<value>")]
+        async fn update_put_fn_form(
+            db: #database_struct,
+            id: #primary_type,
+            value: ::rocket::serde::json::Json<#put_ident>,
+            #auth_param
+        ) -> ::rp1::CrudJsonResult<#ident>
+        {
+            let value = value.into_inner();
+            update_put_fn_help(db, id, value, #auth_pass).await
         }
     };
     (
         tokens,
         vec![
-            format_ident!("update_fn_json"),
-            format_ident!("update_fn_form"),
+            format_ident!("update_patch_fn_json"),
+            format_ident!("update_patch_fn_form"),
+            format_ident!("update_put_fn_json"),
+            format_ident!("update_put_fn_form"),
         ],
     )
 }
 
-fn derive_update_type(props: &CrudProps) -> TokenStream {
-    let fields = props.updatable_fields();
+fn derive_update_types(props: &CrudProps) -> TokenStream {
+    let patch_fields = props.patch_fields();
+    let put_fields = props.put_fields();
     let table_name = props.table_name.to_string();
+    let patch_field_names = patch_fields
+        .iter()
+        .map(|f| f.ident.clone())
+        .collect::<Vec<_>>();
+    let non_patch_fields = props
+        .non_user_supplied_fields()
+        .map(|f| f.ident.clone())
+        .collect::<Vec<_>>();
 
     let CrudProps {
         ident,
-        update_ident,
+        patch_ident,
+        put_ident,
         ..
     } = props;
 
@@ -127,14 +202,64 @@ fn derive_update_type(props: &CrudProps) -> TokenStream {
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
         #derive_validate
-        #[derive(Default)]
         #[table_name = #table_name]
-        pub struct #update_ident {
-            #(#fields),*
+        pub struct #patch_ident {
+            #(#patch_fields),*
+        }
+
+        #[derive(::diesel::Queryable)]
+        #[derive(::diesel::AsChangeset)]
+        #[derive(::rocket::form::FromForm)]
+        #[derive(::serde::Deserialize)]
+        #derive_validate
+        #[table_name = #table_name]
+        pub struct #put_ident {
+            #(#put_fields),*
+        }
+
+        impl #put_ident {
+            pub fn create(base: &#ident, patch: &#patch_ident) -> #put_ident {
+                #(
+                    let #patch_field_names = if let Some(ref v) = patch.#patch_field_names {
+                        v.clone()
+                    } else {
+                        base.#patch_field_names.clone()
+                    };
+                )*
+
+                #put_ident {
+                    #(#patch_field_names),*,
+                    #(#non_patch_fields: base.#non_patch_fields.clone()),*,
+                }
+            }
+
+            pub fn validate_update(&self, base: &#ident) -> ::rp1::CrudResult<()> {
+                #(
+                    if self.#non_patch_fields != base.#non_patch_fields {
+                        return Err(::rp1::CrudError::UnchangeableField(stringify!(#non_patch_fields).to_owned()));
+                    }
+                )*
+
+                Ok(())
+            }
+
+            pub fn into_patch(self, base: &#ident) -> #patch_ident {
+                #patch_ident {
+                    #(
+                        #patch_field_names:
+                            if self.#patch_field_names == base.#patch_field_names {
+                                None
+                            } else {
+                                Some(self.#patch_field_names)
+                            }
+                    ),*
+                }
+            }
         }
 
         impl ::rp1::CrudUpdatable for #ident {
-            type UpdateType = #update_ident;
+            type PatchType = #patch_ident;
+            type PutType = #put_ident;
         }
     }
 }
@@ -143,7 +268,8 @@ pub(crate) fn derive_crud_without_update(props: &CrudProps) -> TokenStream {
     let CrudProps { ident, .. } = props;
     quote! {
         impl ::rp1::CrudUpdatable for #ident {
-            type UpdateType = ();
+            type PatchType = ();
+            type PutType = ();
         }
     }
 }
