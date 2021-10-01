@@ -54,7 +54,7 @@ pub struct CrudField {
 }
 
 impl CrudField {
-    pub fn as_patch_field(&self) -> CrudField {
+    pub fn with_wrapped_option(&self) -> CrudField {
         let mut cloned = self.clone();
         if self.is_option {
             let attr = Attribute {
@@ -215,6 +215,7 @@ impl CrudPropsBuilder {
             patch_ident: format_ident!("UpdatePatch{}", &item.ident),
             put_ident: format_ident!("UpdatePut{}", &item.ident),
             filter_ident: format_ident!("{}FilterSpec", &item.ident),
+            partial_ident: format_ident!("Partial{}", &item.ident),
             module_name: self
                 .module_name
                 .unwrap_or_else(|| format_ident!("{}", to_snake_case(&item.ident.to_string()))),
@@ -253,6 +254,7 @@ pub struct CrudProps {
     pub(crate) patch_ident: Ident,
     pub(crate) put_ident: Ident,
     pub(crate) filter_ident: Ident,
+    pub(crate) partial_ident: Ident,
     pub(crate) table_name: Ident,
     pub(crate) primary_type: Type,
     pub(crate) max_limit: i64,
@@ -272,7 +274,7 @@ impl CrudProps {
 
     pub(crate) fn patch_fields(&self) -> Vec<CrudField> {
         self.user_supplied_fields()
-            .map(|f| f.as_patch_field())
+            .map(|f| f.with_wrapped_option())
             .collect()
     }
 

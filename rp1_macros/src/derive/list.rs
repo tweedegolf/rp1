@@ -119,14 +119,6 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             #(#sortable_field_names),*
         }
 
-        impl ::std::fmt::Display for SortableFields {
-            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-                write!(f, "{}", match self {
-                    #(SortableFields::#sortable_field_names => stringify!(#sortable_field_names)),*
-                })
-            }
-        }
-
         use ::rocket::request::{self, Request, FromRequest};
 
         #[derive(Debug)]
