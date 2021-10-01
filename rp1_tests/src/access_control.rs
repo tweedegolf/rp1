@@ -18,7 +18,6 @@ pub enum AUser {
 }
 
 #[rp1::crud(database = "Db", table = "users", auth = false)]
-#[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
     id: i32,
@@ -32,7 +31,6 @@ struct User {
 }
 
 #[rp1::crud(database = "Db", table = "posts", auth = false)]
-#[derive(serde::Serialize, diesel::Queryable)]
 struct Post {
     #[primary_key]
     id: i32,
@@ -47,7 +45,6 @@ struct Post {
 }
 
 #[rp1::crud(database = "Db", table = "comments", auth = false)]
-#[derive(serde::Serialize, diesel::Queryable)]
 struct Comment {
     #[primary_key]
     id: i32,
@@ -59,9 +56,9 @@ struct Comment {
     user_id: Option<i32>,
     anonymous_user: Option<String>,
     #[generated]
-    created_at: chrono::NaiveDateTime,
+    created_at: rp1::datetime::OffsetDateTime,
     #[generated]
-    updated_at: chrono::NaiveDateTime,
+    updated_at: rp1::datetime::OffsetDateTime,
 }
 
 impl CheckPermissions for User {

@@ -30,16 +30,16 @@ fn clear_database() {
 struct Db(diesel::PgConnection);
 
 #[rp1::crud(database = "Db", table = "users", auth = false)]
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize, diesel::Queryable)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct User {
     #[primary_key]
     pub id: i32,
     pub username: String,
     pub role: String,
     #[generated]
-    pub created_at: chrono::NaiveDateTime,
+    pub created_at: rp1::datetime::OffsetDateTime,
     #[generated]
-    pub updated_at: chrono::NaiveDateTime,
+    pub updated_at: rp1::datetime::OffsetDateTime,
 }
 
 fn init_rocket() -> Rocket<Build> {

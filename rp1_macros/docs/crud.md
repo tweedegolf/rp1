@@ -1,11 +1,9 @@
 # The `crud` macro
-The crud macro is the main entrypoint for RP1. It should be defined on a struct
-that implements [serde::Serialize] and [diesel::Queryable].
+The crud macro is the main entrypoint for RP1.
 
 ## Example
 ```rust
 #[rp1::crud(database = "Db", table = "users", auth = false)]
-#[derive(Debug, serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
     pub id: i32,
@@ -13,9 +11,9 @@ struct User {
     username: String,
     role: String,
     #[generated]
-    created_at: chrono::NaiveDateTime,
+    created_at: rp1::datetime::OffsetDateTime,
     #[generated]
-    updated_at: chrono::NaiveDateTime,
+    updated_at: rp1::datetime::OffsetDateTime,
 }
 ```
 
@@ -99,7 +97,14 @@ included) or `x-www-form-urlencoded`.
 To read a single row/entity from the database, you can do a get request to this
 route. The response will be the JSON encoded data for that row in the body.
 
-### Update: `POST /:id`
+### Update: `PATCH /:id` or `PUT /:id`
+To partially update an entity, only sending the modified fields, send a patch
+request to this route. You can also use a put request, in which case all fields
+must be provided, including those that cannot be modified. Fields that cannot
+be modified must have their original value. The body should either be JSON or
+form encoded.
+
+### Full update: `PUT /:id`
 To update an entity send a post request to this route. The same constraints as
 the create route apply.
 

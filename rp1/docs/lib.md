@@ -23,7 +23,6 @@ use rocket_sync_db_pools::database;
 struct Db(diesel::PgConnection);
 
 #[rp1::crud(database = "Db", table = "users", auth = false)]
-#[derive(Debug, serde::Serialize, diesel::Queryable, validator::Validate)]
 struct User {
     #[primary_key]
     pub id: i32,
@@ -31,9 +30,9 @@ struct User {
     username: String,
     role: String,
     #[generated]
-    created_at: chrono::NaiveDateTime,
+    created_at: rp1::datetime::OffsetDateTime,
     #[generated]
-    updated_at: chrono::NaiveDateTime,
+    updated_at: rp1::datetime::OffsetDateTime,
 }
 
 #[rocket::launch]
@@ -46,19 +45,16 @@ fn rocket() -> _ {
 
 ## Project setup
 To get started, you will need to add a few dependencies to your `Cargo.toml`.
-Note that if you don't need timestamp support in your database you can remove
-the `chrono` dependency and `chrono` feature from diesel.
 
 ```toml
 [dependencies]
 rp1 = "0.2.1"
-diesel = { version = "1.4.6", features = ["postgres", "r2d2", "chrono"] }
+diesel = { version = "1.4.6", features = ["postgres", "r2d2"] }
 diesel_migrations = "1.4.0"
 rocket = "0.5.0-rc.1"
 rocket_sync_db_pools = { version = "0.1.0-rc.1", features = ["diesel_postgres_pool"] }
 serde = "1.0.127"
 serde_json = "1.0.66"
-chrono = { version = "0.4.19", features = ["serde"] }
 validator = "0.14.0"
 ```
 
