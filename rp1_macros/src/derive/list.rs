@@ -7,6 +7,7 @@ use crate::{derive::common::derive_auth_param, props::CrudProps};
 pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
     let CrudProps {
         database_struct,
+        partial_ident,
         ident,
         schema_path,
         table_name,
@@ -25,6 +26,8 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             let query = Some(query);
         }
     };
+
+    let all_field_names = props.fields.iter().map(|f| f.ident.clone()).collect::<Vec<_>>();
 
     let sortable_field_names = props
         .sortable_fields()
@@ -219,22 +222,33 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         }
 
 
-        #[::rocket::get("/?<sort>&<offset>&<limit>&<filter>")]
+        #[::rocket::get("/?<sort>&<offset>&<limit>&<filter>&<include>&<exclude>")]
         async fn list_fn(
             db: #database_struct,
             sort: Vec<::rp1::SortSpec<SortableFields>>,
             filter: #filter_ident,
             offset: Option<i64>,
             limit: Option<i64>,
+            include: Vec<Fields>,
+            exclude: Vec<Fields>,
             #auth_param
-        ) -> ::rp1::CrudJsonResult<Vec<#ident>>
+        ) -> ::rp1::CrudJsonResult<Vec<#partial_ident>>
         {
+            let selected = Fields::selected(include, exclude);
             let offset = i64::max(0, offset.unwrap_or(0));
             let limit = i64::max(1, i64::min(#max_limit, limit.unwrap_or(#max_limit)));
             let results = db.run(move |conn| {
                 use ::rp1::SortDirection;
                 use ::diesel::expression::Expression;
-                let mut query = #schema_path::#table_name::table.offset(offset).limit(limit).into_boxed();
+                let mut query = #schema_path::#table_name::table.select(
+                    (
+                        #(if fields.contains(Fields::#all_field_names) {
+                            #schema_path::#table_name::columns::#all_field_names.nullable()
+                        } else {
+                            diesel::dsl::sql("null")
+                        }),*
+                    )
+                ).offset(offset).limit(limit).into_boxed();
                 for sort_spec in sort {
                     match sort_spec.field {
                         #(SortableFields::#sortable_field_names => {

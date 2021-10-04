@@ -16,12 +16,35 @@ pub(crate) fn derive_auth_param(props: &CrudProps) -> Option<TokenStream> {
 }
 
 pub(crate) fn derive_field_list(props: &CrudProps) -> TokenStream {
-    let fields = &props.fields;
+    let &CrudProps {
+        schema_path,
+        table_name,
+        ..
+    } = &props;
+    let fields = &props.fields.iter().map(|f| f.clone().ident).collect::<Vec<_>>();
+
     quote! {
         #[allow(non_camel_case_types)]
-        #[derive(::rocket::FromFormField, Debug)]
+        #[derive(::rocket::FromFormField, Debug, PartialEq, Eq)]
         pub enum Fields {
             #(#fields),*
+        }
+
+        impl Fields {
+            pub fn all() -> Vec<Fields> {
+                vec![
+                    #(Fields::#fields),*
+                ]
+            }
+
+            pub fn selected(include: Vec<Fields>, exclude: Vec<Fields>) -> Vec<Fields> {
+                let include = if include.is_empty() {
+                    Fields::all()
+                } else {
+                    include
+                };
+                include.into_iter().filter(|f| !exclude.contains(f)).collect()
+            }
         }
 
         impl ::std::fmt::Display for Fields {
@@ -29,14 +52,6 @@ pub(crate) fn derive_field_list(props: &CrudProps) -> TokenStream {
                 write!(f, "{}", match self {
                     #(Fields::#fields => stringify!(#fields)),*
                 })
-            }
-        }
-
-        impl ::std::string::ToString for Fields {
-            fn to_string(&self) -> String {
-                match self {
-                    #(Fields::#fields => stringify!(#fields).to_owned()),*
-                }
             }
         }
     }
