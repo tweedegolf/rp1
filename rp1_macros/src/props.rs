@@ -73,6 +73,17 @@ impl CrudField {
 
         cloned
     }
+
+    pub fn ensure_option(&self) -> CrudField {
+        if self.is_option {
+            self.clone()
+        } else {
+            let mut cloned = self.clone();
+            let ty = &self.ty;
+            cloned.ty = syn::parse2(quote!(Option<#ty>)).expect("Invalid type formed");
+            cloned
+        }
+    }
 }
 
 impl ToTokens for CrudField {

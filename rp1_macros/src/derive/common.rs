@@ -21,7 +21,11 @@ pub(crate) fn derive_field_list(props: &CrudProps) -> TokenStream {
         table_name,
         ..
     } = &props;
-    let fields = &props.fields.iter().map(|f| f.clone().ident).collect::<Vec<_>>();
+    let fields = &props
+        .fields
+        .iter()
+        .map(|f| f.clone().ident)
+        .collect::<Vec<_>>();
 
     quote! {
         #[allow(non_camel_case_types)]
@@ -58,7 +62,11 @@ pub(crate) fn derive_field_list(props: &CrudProps) -> TokenStream {
 }
 
 pub(crate) fn derive_partial_result_struct(props: &CrudProps) -> TokenStream {
-    let fields = &props.fields.iter().map(|f| f.with_wrapped_option()).collect::<Vec<_>>();
+    let fields = &props
+        .fields
+        .iter()
+        .map(|f| f.ensure_option())
+        .collect::<Vec<_>>();
     let partial_ident = &props.partial_ident;
     let ItemStruct {
         attrs, generics, ..

@@ -27,8 +27,6 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         }
     };
 
-    let all_field_names = props.fields.iter().map(|f| f.ident.clone()).collect::<Vec<_>>();
-
     let sortable_field_names = props
         .sortable_fields()
         .map(|f| f.ident.clone())
@@ -56,6 +54,8 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         })
         .collect();
     let max_limit = props.max_limit;
+
+    let select_statements = derive_select_statement(&props);
 
     let filter_parse_stmts = filterable_fields
         .iter()
@@ -240,15 +240,11 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             let results = db.run(move |conn| {
                 use ::rp1::SortDirection;
                 use ::diesel::expression::Expression;
-                let mut query = #schema_path::#table_name::table.select(
-                    (
-                        #(if fields.contains(Fields::#all_field_names) {
-                            #schema_path::#table_name::columns::#all_field_names.nullable()
-                        } else {
-                            diesel::dsl::sql("null")
-                        }),*
-                    )
-                ).offset(offset).limit(limit).into_boxed();
+                let mut query = #schema_path::#table_name::table
+                    .select(#select_statements)
+                    .offset(offset)
+                    .limit(limit)
+                    .into_boxed();
                 for sort_spec in sort {
                     match sort_spec.field {
                         #(SortableFields::#sortable_field_names => {
@@ -274,4 +270,37 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
     };
 
     (tokens, vec![format_ident!("list_fn")])
+}
+
+fn derive_select_statement(props: &CrudProps) -> TokenStream {
+    let &CrudProps {
+        schema_path,
+        table_name,
+        ..
+    } = &props;
+
+    let fields = props.fields.iter().map(|f| {
+        let name = &f.ident;
+        if f.is_option {
+            quote! {
+                if selected.contains(&Fields::#name) {
+                    diesel::dsl::sql(stringify!(#name))
+                    // #schema_path::#table_name::columns::#name
+                } else {
+                    diesel::dsl::sql("null")
+                }
+            }
+        } else {
+            quote! {
+                if selected.contains(&Fields::#name) {
+                    diesel::dsl::sql(stringify!(#name))
+                    // #schema_path::#table_name::columns::#name.nullable()
+                } else {
+                    diesel::dsl::sql("null")
+                }
+            }
+        }
+    });
+
+    quote! { (#(#fields,)*) }
 }
