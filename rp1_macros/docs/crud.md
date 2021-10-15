@@ -52,6 +52,9 @@ The following properties can be specified on the main crud attribute macro.
   is enabled.
 * `list: bool`: Whether or not to enable the list endpoint, by default this is
   enabled.
+* `partials: bool`: Whether or not to enable support for partial results, by
+  default this is enabled, but it can be disabled for a slight performance
+  boost.
 
 ## Field attributes
 There are several field attributes you can add to a field in your struct to
@@ -142,3 +145,8 @@ filtering, sorting and pagination.
     values in that matches the value in the column then that row shoul be
     included. Note that you cannot use `in` with columns that contain values
     with commas, as there is no escaping mechanism.
+- Partials: if you want, you can limit which fields will be returned in a
+  response. You can include fields using `include` (in which case all fields
+  not mentioned will be excluded automatically) or you can choose to specify
+  which fields should be excluded using `exclude`. You can repeat include and
+  exclude query parameters to include or exclude multiple fields.
