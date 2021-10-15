@@ -76,6 +76,8 @@ pub enum CrudError {
     InvalidSortSpec(String),
     #[error("Invalid filter: {0}")]
     InvalidFilterSpec(String),
+    #[error("An unexpected value was returned from the database")]
+    DbValueError,
 }
 
 impl From<::diesel::result::Error> for CrudError {
@@ -103,6 +105,7 @@ impl CrudError {
             CrudError::UnchangeableField(_) => Status::BadRequest,
             CrudError::InvalidSortSpec(_) => Status::BadRequest,
             CrudError::InvalidFilterSpec(_) => Status::BadRequest,
+            CrudError::DbValueError => Status::InternalServerError,
         }
     }
 }

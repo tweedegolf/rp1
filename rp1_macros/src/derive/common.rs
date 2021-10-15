@@ -23,7 +23,7 @@ pub(crate) fn derive_field_list(props: &CrudProps) -> TokenStream {
 
     quote! {
         #[allow(non_camel_case_types)]
-        #[derive(::rocket::FromFormField, Debug, PartialEq, Eq)]
+        #[derive(::rocket::FromFormField, Debug, PartialEq, Eq, Clone)]
         pub enum Fields {
             #(#fields),*
         }

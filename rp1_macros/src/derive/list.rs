@@ -11,6 +11,8 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         schema_path,
         table_name,
         filter_ident,
+        partial_ident,
+        partial_output_ident,
         ..
     } = props;
 
@@ -27,8 +29,8 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         }
     };
 
-    let partial_ident = if partials {
-        &props.partial_ident
+    let output_ident = if partials {
+        &props.partial_output_ident
     } else {
         &props.ident
     };
@@ -56,7 +58,19 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         quote! { #schema_path::#table_name::all_columns }
     };
     let selected_fields_stmt = if partials {
-        Some(quote! { let selected = Fields::selected(include, exclude); })
+        Some(quote! { let selected = Fields::selected(include, exclude); let selected_out = selected.clone(); })
+    } else {
+        None
+    };
+    let partial_result_type = if partials {
+        quote!(Vec<#partial_ident>)
+    } else {
+        quote!(Vec<#output_ident>)
+    };
+    let partial_result_map = if partials {
+        Some(quote! {
+            let results = results.into_iter().map(|e| #partial_output_ident::from_partial(e, &selected_out)).collect::<Result<Vec<#output_ident>, ::rp1::CrudError>>()?;
+        })
     } else {
         None
     };
@@ -265,14 +279,14 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             limit: Option<i64>,
             #partial_params
             #auth_param
-        ) -> ::rp1::CrudJsonResult<Vec<#partial_ident>>
+        ) -> ::rp1::CrudJsonResult<Vec<#output_ident>>
         {
             let sort = sort.map_err(|e| ::rp1::CrudError::InvalidSortSpec(e.to_string()))?;
             let filter = filter.map_err(|e| ::rp1::CrudError::InvalidFilterSpec(e.to_string()))?;
             #selected_fields_stmt
             let offset = i64::max(0, offset.unwrap_or(0));
             let limit = i64::max(1, i64::min(#max_limit, limit.unwrap_or(#max_limit)));
-            let results = db.run(move |conn| {
+            let results: #partial_result_type = db.run(move |conn| {
                 use ::rp1::SortDirection;
                 use ::diesel::expression::Expression;
                 let mut query = #schema_path::#table_name::table
@@ -300,6 +314,7 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
             .await
             .ok_or_else(|| ::rp1::CrudError::Forbidden)??;
 
+            #partial_result_map
             Ok(::rocket::serde::json::Json(results))
         }
     };
@@ -308,21 +323,64 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
 }
 
 fn derive_partial_result_struct(props: &CrudProps) -> TokenStream {
-    let fields = &props
+    let partial_fields = props
         .fields
         .iter()
         .map(|f| f.ensure_option())
         .collect::<Vec<_>>();
+    let partial_output_fields = props
+        .fields
+        .iter()
+        .map(|f| f.with_wrapped_option())
+        .collect::<Vec<_>>();
+    let field_maps = props
+        .fields
+        .iter()
+        .map(|f| {
+            let ident = &f.ident;
+            if f.is_option {
+                quote! {
+                    #ident: if fields.contains(&Fields::#ident) {
+                        Some(partial.#ident)
+                    } else {
+                        None
+                    }
+                }
+            } else {
+                quote! {
+                    #ident: if fields.contains(&Fields::#ident) {
+                        Some(partial.#ident.ok_or(::rp1::CrudError::DbValueError)?)
+                    } else {
+                        None
+                    }
+                }
+            }
+        }).collect::<Vec<_>>();
     let partial_ident = &props.partial_ident;
+    let partial_output_ident = &props.partial_output_ident;
     let ItemStruct {
         attrs, generics, ..
     } = &props.item;
 
     quote! {
         #(#attrs)*
-        #[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
+        #[derive(::diesel::Queryable, ::serde::Serialize, ::validator::Validate)]
         pub struct #partial_ident #generics {
-            #(#fields),*
+            #(#partial_fields),*
+        }
+
+        #(#attrs)*
+        #[derive(::serde::Serialize, ::validator::Validate)]
+        pub struct #partial_output_ident #generics {
+            #(#partial_output_fields),*
+        }
+
+        impl #partial_output_ident {
+            pub fn from_partial(partial: #partial_ident, fields: &Vec<Fields>) -> ::rp1::CrudResult<#partial_output_ident> {
+                Ok(#partial_output_ident {
+                    #(#field_maps),*
+                })
+            }
         }
     }
 }

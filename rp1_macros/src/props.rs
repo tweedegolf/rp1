@@ -62,7 +62,16 @@ impl CrudField {
                 style: AttrStyle::Outer,
                 bracket_token: Bracket(Span::call_site()),
                 path: syn::parse2(quote! { serde }).unwrap(),
-                tokens: quote! { (default, deserialize_with = "::rp1::helper::double_option") },
+                tokens: quote! { (default, deserialize_with = "::rp1::helper::double_option", skip_serializing_if = "Option::is_none") },
+            };
+            cloned.attrs.push(attr);
+        } else {
+            let attr = Attribute {
+                pound_token: Token![#](Span::call_site()),
+                style: AttrStyle::Outer,
+                bracket_token: Bracket(Span::call_site()),
+                path: syn::parse2(quote! { serde }).unwrap(),
+                tokens: quote! { (skip_serializing_if = "Option::is_none") },
             };
             cloned.attrs.push(attr);
         }
@@ -229,6 +238,7 @@ impl CrudPropsBuilder {
             put_ident: format_ident!("UpdatePut{}", &item.ident),
             filter_ident: format_ident!("{}FilterSpec", &item.ident),
             partial_ident: format_ident!("Partial{}", &item.ident),
+            partial_output_ident: format_ident!("PartialOutput{}", &item.ident),
             module_name: self
                 .module_name
                 .unwrap_or_else(|| format_ident!("{}", to_snake_case(&item.ident.to_string()))),
@@ -270,6 +280,7 @@ pub struct CrudProps {
     pub(crate) put_ident: Ident,
     pub(crate) filter_ident: Ident,
     pub(crate) partial_ident: Ident,
+    pub(crate) partial_output_ident: Ident,
     pub(crate) table_name: Ident,
     pub(crate) primary_type: Type,
     pub(crate) max_limit: i64,
