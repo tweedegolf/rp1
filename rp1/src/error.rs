@@ -24,6 +24,9 @@ pub enum ParseError {
 
     #[error("Unknown operator '{0}'")]
     UnknownOperator(String),
+
+    #[error("Unknown field '{0}'")]
+    UnknownField(String),
 }
 
 impl From<ParseIntError> for ParseError {
@@ -69,6 +72,10 @@ pub enum CrudError {
     ValidationErrors(::validator::ValidationErrors),
     #[error("Field {0} is not allowed to be changed")]
     UnchangeableField(String),
+    #[error("Invalid sort specification: {0}")]
+    InvalidSortSpec(String),
+    #[error("Invalid filter: {0}")]
+    InvalidFilterSpec(String),
 }
 
 impl From<::diesel::result::Error> for CrudError {
@@ -94,6 +101,8 @@ impl CrudError {
             #[cfg(feature = "validation")]
             CrudError::ValidationErrors(_) => Status::BadRequest,
             CrudError::UnchangeableField(_) => Status::BadRequest,
+            CrudError::InvalidSortSpec(_) => Status::BadRequest,
+            CrudError::InvalidFilterSpec(_) => Status::BadRequest,
         }
     }
 }

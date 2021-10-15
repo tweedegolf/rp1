@@ -179,6 +179,8 @@ pub struct CrudPropsBuilder {
     delete: bool,
     #[darling(default = "enabled")]
     list: bool,
+    #[darling(default = "enabled")]
+    partials: bool,
     #[darling(default, rename = "module")]
     module_name: Option<Ident>,
     #[darling(default, rename = "table")]
@@ -235,6 +237,7 @@ impl CrudPropsBuilder {
             list: self.list,
             update: self.update,
             delete: self.delete,
+            partials: self.partials,
             table_name: self
                 .table_name
                 .unwrap_or_else(|| format_ident!("{}", to_snake_case(&item.ident.to_string()))),
@@ -259,6 +262,7 @@ pub struct CrudProps {
     pub(crate) update: bool,
     pub(crate) delete: bool,
     pub(crate) list: bool,
+    pub(crate) partials: bool,
     pub(crate) module_name: Ident,
     pub(crate) ident: Ident,
     pub(crate) new_ident: Ident,

@@ -1,6 +1,5 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::ItemStruct;
 
 use crate::props::CrudProps;
 
@@ -16,11 +15,6 @@ pub(crate) fn derive_auth_param(props: &CrudProps) -> Option<TokenStream> {
 }
 
 pub(crate) fn derive_field_list(props: &CrudProps) -> TokenStream {
-    let &CrudProps {
-        schema_path,
-        table_name,
-        ..
-    } = &props;
     let fields = &props
         .fields
         .iter()
@@ -57,26 +51,6 @@ pub(crate) fn derive_field_list(props: &CrudProps) -> TokenStream {
                     #(Fields::#fields => stringify!(#fields)),*
                 })
             }
-        }
-    }
-}
-
-pub(crate) fn derive_partial_result_struct(props: &CrudProps) -> TokenStream {
-    let fields = &props
-        .fields
-        .iter()
-        .map(|f| f.ensure_option())
-        .collect::<Vec<_>>();
-    let partial_ident = &props.partial_ident;
-    let ItemStruct {
-        attrs, generics, ..
-    } = &props.item;
-
-    quote! {
-        #(#attrs)*
-        #[derive(serde::Serialize, diesel::Queryable, validator::Validate)]
-        pub struct #partial_ident #generics {
-            #(#fields),*
         }
     }
 }
