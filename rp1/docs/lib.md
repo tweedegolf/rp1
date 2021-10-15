@@ -48,7 +48,7 @@ To get started, you will need to add a few dependencies to your `Cargo.toml`.
 
 ```toml
 [dependencies]
-rp1 = "0.2.1"
+rp1 = "0.3.0"
 diesel = { version = "1.4.6", features = ["postgres", "r2d2"] }
 diesel_migrations = "1.4.0"
 rocket = "0.5.0-rc.1"
