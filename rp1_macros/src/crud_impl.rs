@@ -13,6 +13,8 @@ pub fn crud_impl(args: AttributeArgs, item: TokenStream) -> crate::Result {
     let mut tokens = vec![];
     let mut routes = vec![];
 
+    tokens.push(crate::derive::common::derive_field_list(&props));
+
     if props.create {
         let (toks, mut func) = crate::derive::create::derive_crud_create(&props);
         tokens.push(toks);

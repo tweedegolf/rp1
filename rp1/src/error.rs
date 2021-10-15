@@ -10,20 +10,23 @@ use std::str::ParseBoolError;
 /// Indicates an error while trying to parse a filter value in the query string.
 #[derive(thiserror::Error, Debug)]
 pub enum ParseError {
-    #[error("Could not parse integer")]
+    #[error("Could not parse integer: {0}")]
     IntError(ParseIntError),
 
-    #[error("Could not parse boolean")]
+    #[error("Could not parse boolean: {0}")]
     BoolError(ParseBoolError),
 
-    #[error("Could not parse date/time value")]
+    #[error("Could not parse date/time value: {0}")]
     TimeError(::time::Error),
 
     #[error("An infallible conversion somehow failed")]
     Infallible,
 
-    #[error("Unknown operator")]
+    #[error("Unknown operator '{0}'")]
     UnknownOperator(String),
+
+    #[error("Unknown field '{0}'")]
+    UnknownField(String),
 }
 
 impl From<ParseIntError> for ParseError {
@@ -56,14 +59,25 @@ impl<'v> From<ParseError> for FormErrorKind<'v> {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
 pub enum CrudError {
+    #[error("Not Found")]
     NotFound,
+    #[error("Forbidden")]
     Forbidden,
-    Example,
+    #[error("Error from the database layer: {0}")]
     DbError(::diesel::result::Error),
     #[cfg(feature = "validation")]
+    #[error("There are validation errors: {0}")]
     ValidationErrors(::validator::ValidationErrors),
+    #[error("Field {0} is not allowed to be changed")]
     UnchangeableField(String),
+    #[error("Invalid sort specification: {0}")]
+    InvalidSortSpec(String),
+    #[error("Invalid filter: {0}")]
+    InvalidFilterSpec(String),
+    #[error("An unexpected value was returned from the database")]
+    DbValueError,
 }
 
 impl From<::diesel::result::Error> for CrudError {
@@ -82,7 +96,6 @@ impl From<::validator::ValidationErrors> for CrudError {
 impl CrudError {
     fn status(&self) -> Status {
         match self {
-            CrudError::Example => Status::InternalServerError,
             CrudError::NotFound => Status::NotFound,
             CrudError::Forbidden => Status::Forbidden,
             CrudError::DbError(::diesel::result::Error::NotFound) => Status::NotFound,
@@ -90,6 +103,9 @@ impl CrudError {
             #[cfg(feature = "validation")]
             CrudError::ValidationErrors(_) => Status::BadRequest,
             CrudError::UnchangeableField(_) => Status::BadRequest,
+            CrudError::InvalidSortSpec(_) => Status::BadRequest,
+            CrudError::InvalidFilterSpec(_) => Status::BadRequest,
+            CrudError::DbValueError => Status::InternalServerError,
         }
     }
 }
@@ -99,6 +115,7 @@ impl<'r> Responder<'r, 'static> for CrudError {
         let status = self.status();
         let body: String = ::serde_json::json!({
             "error": status.code,
+            "message": self.to_string(),
         })
         .to_string();
         Response::build()
