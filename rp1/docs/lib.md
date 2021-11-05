@@ -48,14 +48,14 @@ To get started, you will need to add a few dependencies to your `Cargo.toml`.
 
 ```toml
 [dependencies]
-rp1 = "0.3.1"
-diesel = { version = "1.4.6", features = ["postgres", "r2d2"] }
-diesel_migrations = "1.4.0"
+rp1 = "0.3"
+diesel = { version = "1.4", features = ["postgres", "r2d2"] }
+diesel_migrations = "1.4"
 rocket = "0.5.0-rc.1"
 rocket_sync_db_pools = { version = "0.1.0-rc.1", features = ["diesel_postgres_pool"] }
-serde = "1.0.127"
-serde_json = "1.0.66"
-validator = "0.14.0"
+serde = "1.0"
+serde_json = "1.0"
+validator = "0.14"
 ```
 
 Next, make sure you have installed the diesel cli. To do this, you can run
