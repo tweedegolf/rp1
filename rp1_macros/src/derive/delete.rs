@@ -37,7 +37,7 @@ pub(crate) fn derive_crud_delete(props: &CrudProps) -> (TokenStream, Vec<Ident>)
             db: #database_struct,
             id: #primary_type,
             #auth_param
-        ) -> ::rp1::CrudResult<::rocket::serde::json::Value>
+        ) -> ::rp1::CrudResult<::serde_json::Value>
         {
             #auth_check
 
@@ -45,7 +45,7 @@ pub(crate) fn derive_crud_delete(props: &CrudProps) -> (TokenStream, Vec<Ident>)
                 diesel::delete(#schema_path::#table_name::table.find(id)).execute(conn)
             })
             .await?;
-            Ok(::rocket::serde::json::json!({
+            Ok(::serde_json::json!({
                 "deleted": deleted,
             }))
         }

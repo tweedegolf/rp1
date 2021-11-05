@@ -44,6 +44,7 @@ struct User {
     #[validate(email)]
     username: String,
     role: String,
+    birthdate: Option<rp1::datetime::Date>,
     #[generated]
     created_at: rp1::datetime::OffsetDateTime,
     #[generated]

@@ -1,6 +1,6 @@
 [package]
 name = "rp1-macros"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Ruben Nijveld <ruben@tweedegolf.com>", "Folkert <folkert@folkertdev.nl>"]
 license = "MIT OR Apache-2.0"
 edition = "2018"

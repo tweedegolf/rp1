@@ -1149,7 +1149,7 @@ dependencies = [
 
 [[package]]
 name = "rp1"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "diesel",
  "diesel_migrations",
@@ -1180,7 +1180,7 @@ dependencies = [
 
 [[package]]
 name = "rp1-macros"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "Inflector",
  "darling",

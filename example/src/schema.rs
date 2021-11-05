@@ -30,6 +30,7 @@ table! {
         id -> Int4,
         username -> Varchar,
         role -> Varchar,
+        birthdate -> Nullable<Date>,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
@@ -39,4 +40,8 @@ joinable!(comments -> posts (post_id));
 joinable!(comments -> users (user_id));
 joinable!(posts -> users (user_id));
 
-allow_tables_to_appear_in_same_query!(comments, posts, users,);
+allow_tables_to_appear_in_same_query!(
+    comments,
+    posts,
+    users,
+);
