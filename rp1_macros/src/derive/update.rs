@@ -181,6 +181,13 @@ fn derive_update_types(props: &CrudProps) -> TokenStream {
         .map(|f| f.ident.clone())
         .collect::<Vec<_>>();
 
+    // Only forward serde attributes for now
+    let attrs = props.item.attrs
+        .iter()
+        .filter(|attr| attr.path.is_ident("serde"))
+        .cloned()
+        .collect::<Vec<_>>();
+
     let CrudProps {
         ident,
         patch_ident,
@@ -202,6 +209,7 @@ fn derive_update_types(props: &CrudProps) -> TokenStream {
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
         #derive_validate
+        #(#attrs)*
         #[table_name = #table_name]
         pub struct #patch_ident {
             #(#patch_fields),*
@@ -212,6 +220,7 @@ fn derive_update_types(props: &CrudProps) -> TokenStream {
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
         #derive_validate
+        #(#attrs)*
         #[table_name = #table_name]
         pub struct #put_ident {
             #(#put_fields),*
