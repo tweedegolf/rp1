@@ -100,6 +100,13 @@ fn derive_new_type(props: &CrudProps) -> TokenStream {
     let table_name = props.table_name.to_string();
     let fields = props.user_supplied_fields();
 
+    // Only forward serde attributes for now
+    let attrs = props.item.attrs
+        .iter()
+        .filter(|attr| attr.path.is_ident("serde"))
+        .cloned()
+        .collect::<Vec<_>>();
+
     let derive_validate = if cfg!(feature = "validation") {
         Some(quote::quote! {
             #[derive(::validator::Validate)]
@@ -114,6 +121,7 @@ fn derive_new_type(props: &CrudProps) -> TokenStream {
         #[derive(::rocket::form::FromForm)]
         #[derive(::serde::Deserialize)]
         #derive_validate
+        #(#attrs)*
         #[table_name = #table_name]
         pub struct #new_ident {
             #(#fields),*
