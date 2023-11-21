@@ -1,6 +1,6 @@
 [package]
 name = "rp1-macros"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Ruben Nijveld <ruben@tweedegolf.com>", "Folkert <folkert@folkertdev.nl>"]
 license = "MIT OR Apache-2.0"
 edition = "2018"
@@ -13,11 +13,11 @@ repository = "https://github.com/tweedegolf/rp1"
 proc-macro = true
 
 [dependencies]
-syn = { version = "1.0", features = ["full", "extra-traits"] }
-quote = "1.0"
-darling = "0.13"
-proc-macro2 = "1.0"
-Inflector = "0.11"
+syn.workspace = true
+quote.workspace = true
+darling.workspace = true
+proc-macro2.workspace = true
+Inflector.workspace = true
 
 [features]
 default = ["validation"]

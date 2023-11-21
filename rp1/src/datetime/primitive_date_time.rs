@@ -3,9 +3,10 @@ use std::io::Write;
 use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 
+use diesel::backend::Backend;
 use diesel::data_types::PgTimestamp;
 use diesel::deserialize::FromSql;
-use diesel::pg::Pg;
+use diesel::pg::{Pg, PgValue};
 use diesel::serialize::{Output, ToSql};
 use diesel::sql_types;
 use rocket::form::{FromFormField, ValueField};
@@ -20,8 +21,8 @@ use time::macros::datetime;
 ///
 /// Note that you should prefer an `PrimitiveDateTime` over a [super::OffsetDateTime].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, FromSqlRow, AsExpression)]
-#[sql_type = "diesel::sql_types::Timestamp"]
-#[sql_type = "diesel::sql_types::Timestamptz"]
+#[diesel(sql_type = diesel::sql_types::Timestamp)]
+#[diesel(sql_type = diesel::sql_types::Timestamptz)]
 pub struct PrimitiveDateTime(time::PrimitiveDateTime);
 
 impl Deref for PrimitiveDateTime {
@@ -51,7 +52,7 @@ impl AsMut<time::PrimitiveDateTime> for PrimitiveDateTime {
 }
 
 impl ToSql<sql_types::Timestamp, Pg> for PrimitiveDateTime {
-    fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> diesel::serialize::Result {
+    fn to_sql(&self, out: &mut Output<Pg>) -> diesel::serialize::Result {
         let difference = (self.0 - datetime!(2000-01-01 00:00:00)).whole_microseconds();
         let postgres_diff = PgTimestamp(i64::try_from(difference)?);
         ToSql::<sql_types::Timestamp, Pg>::to_sql(&postgres_diff, out)
@@ -59,9 +60,9 @@ impl ToSql<sql_types::Timestamp, Pg> for PrimitiveDateTime {
 }
 
 impl FromSql<sql_types::Timestamp, Pg> for PrimitiveDateTime {
-    fn from_sql(bytes: Option<&[u8]>) -> diesel::deserialize::Result<Self> {
+    fn from_sql(value: PgValue<'_>) -> diesel::deserialize::Result<Self> {
         use time::ext::NumericalDuration;
-        let pg_timestamp: PgTimestamp = FromSql::<sql_types::Timestamp, Pg>::from_sql(bytes)?;
+        let pg_timestamp: PgTimestamp = FromSql::<sql_types::Timestamp, Pg>::from_sql(value)?;
         let pg_duration = pg_timestamp.0.microseconds();
         Ok(PrimitiveDateTime(
             datetime!(2000-01-01 00:00:00) + pg_duration,

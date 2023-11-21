@@ -6,18 +6,16 @@ license = "MIT OR Apache-2.0"
 edition = "2018"
 publish = false
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 rp1 = { path = "../rp1/" }
-rocket = { version = "0.5.0-rc.1", features = ["json"] }
-diesel = { version = "1.4.6", features = ["postgres", "r2d2", "chrono"] }
-diesel_migrations = "1.4.0"
-dotenv = "0.15.0"
-serde = "1.0.126"
-serde_json = "1.0.64"
-chrono = { version = "0.4.19", features = ["serde"] }
-rocket_sync_db_pools = { version = "0.1.0-rc.1", features = ["diesel_postgres_pool"] }
-validator = { version = "0.14.0", features = ["derive"] }
-tempfile = "3.2.0"
-tokio = "1.8.1"
+rocket.workspace = true
+diesel.workspace = true
+diesel_migrations.workspace = true
+dotenv.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+rocket_sync_db_pools.workspace = true
+validator.workspace = true
+tempfile.workspace = true
+tokio.workspace = true

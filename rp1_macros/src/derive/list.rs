@@ -58,7 +58,9 @@ pub(crate) fn derive_crud_list(props: &CrudProps) -> (TokenStream, Vec<Ident>) {
         quote! { #schema_path::#table_name::all_columns }
     };
     let selected_fields_stmt = if partials {
-        Some(quote! { let selected = Fields::selected(include, exclude); let selected_out = selected.clone(); })
+        Some(
+            quote! { let selected = Fields::selected(include, exclude); let selected_out = selected.clone(); },
+        )
     } else {
         None
     };
@@ -355,7 +357,8 @@ fn derive_partial_result_struct(props: &CrudProps) -> TokenStream {
                     }
                 }
             }
-        }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
     let partial_ident = &props.partial_ident;
     let partial_output_ident = &props.partial_output_ident;
     let ItemStruct {

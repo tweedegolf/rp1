@@ -2,9 +2,10 @@ use std::io::Write;
 use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 
+use diesel::backend::Backend;
 use diesel::data_types::PgTime;
 use diesel::deserialize::FromSql;
-use diesel::pg::Pg;
+use diesel::pg::{Pg, PgValue};
 use diesel::serialize::{Output, ToSql};
 use diesel::sql_types;
 use rocket::form::{FromFormField, ValueField};
@@ -16,7 +17,7 @@ use time::macros::format_description;
 /// A Time from [time] wrapper that can be used in diesel, serde and rocket contexts.
 /// See [time::Time] for more details on how to use the time itself.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, FromSqlRow, AsExpression)]
-#[sql_type = "diesel::sql_types::Time"]
+#[diesel(sql_type = diesel::sql_types::Time)]
 pub struct Time(time::Time);
 
 impl Deref for Time {
@@ -46,7 +47,7 @@ impl AsMut<time::Time> for Time {
 }
 
 impl ToSql<sql_types::Time, Pg> for Time {
-    fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> diesel::serialize::Result {
+    fn to_sql(&self, out: &mut Output<Pg>) -> diesel::serialize::Result {
         let micros = self.0.hour() as i64 * 3600 * 1_000_000
             + self.0.minute() as i64 * 60 * 1_000_000
             + self.0.second() as i64 * 1_000_000
@@ -57,9 +58,9 @@ impl ToSql<sql_types::Time, Pg> for Time {
 }
 
 impl FromSql<sql_types::Time, Pg> for Time {
-    fn from_sql(bytes: Option<&[u8]>) -> diesel::deserialize::Result<Self> {
+    fn from_sql(value: PgValue<'_>) -> diesel::deserialize::Result<Self> {
         use time::ext::NumericalDuration;
-        let pg_time: PgTime = FromSql::<sql_types::Time, Pg>::from_sql(bytes)?;
+        let pg_time: PgTime = FromSql::<sql_types::Time, Pg>::from_sql(value)?;
         let pg_duration = pg_time.0.microseconds();
         Ok(Time(time::Time::MIDNIGHT + pg_duration))
     }

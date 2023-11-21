@@ -3,9 +3,10 @@ use std::io::Write;
 use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 
+use diesel::backend::Backend;
 use diesel::data_types::PgDate;
 use diesel::deserialize::FromSql;
-use diesel::pg::Pg;
+use diesel::pg::{Pg, PgValue};
 use diesel::serialize::{Output, ToSql};
 use diesel::sql_types;
 use rocket::form::{FromFormField, ValueField};
@@ -17,7 +18,7 @@ use time::macros::format_description;
 /// A Date from [time] wrapper that can be used in diesel, serde and rocket contexts.
 /// See [time::Date] for more details on how to use the date itself.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, FromSqlRow, AsExpression)]
-#[sql_type = "diesel::sql_types::Date"]
+#[diesel(sql_type = diesel::sql_types::Date)]
 pub struct Date(time::Date);
 
 impl Deref for Date {
@@ -47,7 +48,7 @@ impl AsMut<time::Date> for Date {
 }
 
 impl ToSql<sql_types::Date, Pg> for Date {
-    fn to_sql<W: Write>(&self, out: &mut Output<W, Pg>) -> diesel::serialize::Result {
+    fn to_sql(&self, out: &mut Output<Pg>) -> diesel::serialize::Result {
         let difference = (self.0 - time::macros::date!(2001 - 01 - 01)).whole_days();
         let postgres_diff = PgDate(i32::try_from(difference)?);
         ToSql::<sql_types::Date, Pg>::to_sql(&postgres_diff, out)
@@ -55,8 +56,8 @@ impl ToSql<sql_types::Date, Pg> for Date {
 }
 
 impl FromSql<sql_types::Date, Pg> for Date {
-    fn from_sql(bytes: Option<&[u8]>) -> diesel::deserialize::Result<Self> {
-        let pg_date: PgDate = FromSql::<sql_types::Date, Pg>::from_sql(bytes)?;
+    fn from_sql(value: PgValue<'_>) -> diesel::deserialize::Result<Self> {
+        let pg_date: PgDate = FromSql::<sql_types::Date, Pg>::from_sql(value)?;
         let pg_duration = time::ext::NumericalDuration::days(pg_date.0 as i64);
         Ok(Date(time::macros::date!(2000 - 01 - 01) + pg_duration))
     }

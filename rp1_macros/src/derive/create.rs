@@ -101,7 +101,9 @@ fn derive_new_type(props: &CrudProps) -> TokenStream {
     let fields = props.user_supplied_fields();
 
     // Only forward serde attributes for now
-    let attrs = props.item.attrs
+    let attrs = props
+        .item
+        .attrs
         .iter()
         .filter(|attr| attr.path.is_ident("serde"))
         .cloned()

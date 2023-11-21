@@ -182,7 +182,9 @@ fn derive_update_types(props: &CrudProps) -> TokenStream {
         .collect::<Vec<_>>();
 
     // Only forward serde attributes for now
-    let attrs = props.item.attrs
+    let attrs = props
+        .item
+        .attrs
         .iter()
         .filter(|attr| attr.path.is_ident("serde"))
         .cloned()

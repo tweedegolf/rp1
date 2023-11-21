@@ -11,18 +11,18 @@ fn clear_database() {
     use diesel::prelude::RunQueryDsl;
 
     let url_origin = "postgres://crud@127.0.0.1:5432/crud";
-    let connection = diesel::PgConnection::establish(url_origin).unwrap();
+    let mut connection = diesel::PgConnection::establish(url_origin).unwrap();
 
     diesel::delete(schema::comments::table)
-        .execute(&connection)
+        .execute(&mut connection)
         .unwrap();
 
     diesel::delete(schema::posts::table)
-        .execute(&connection)
+        .execute(&mut connection)
         .unwrap();
 
     diesel::delete(schema::users::table)
-        .execute(&connection)
+        .execute(&mut connection)
         .unwrap();
 }
 
